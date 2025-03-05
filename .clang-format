@@ -1,0 +1,191 @@
+# Global Flag
+DisableFormat: false
+Language: Cpp
+Standard: Latest
+
+# Indent
+TabWidth: 4
+IndentWidth: 4
+UseTab: Always
+
+AccessModifierOffset: 4
+IndentAccessModifiers: true
+
+IndentCaseBlocks: true
+IndentCaseLabels: true
+
+IndentExternBlock: true
+
+IndentGotoLabels: false
+
+IndentPPDirectives: BeforeHash
+PPIndentWidth: -1 # default
+
+IndentRequiresClause: false
+
+IndentWrappedFunctionNames: false
+
+LambdaBodyIndentation: Signature
+
+NamespaceIndentation: All
+
+# Alignments
+AlignArrayOfStructures: Right
+AlignConsecutiveAssignments: None
+AlignConsecutiveBitFields: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCaseColons: false
+AlignEscapedNewlines: Left
+AlignOperands: AlignAfterOperator
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 2
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Declaration Packing
+AlignAfterOpenBracket: BlockIndent
+
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: true
+# Not sure
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLambdasOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: Yes
+
+BinPackArguments: true
+BinPackParameters: true
+
+BitFieldColonSpacing: After
+
+# Line Break
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: true
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+BracedInitializerIndentWidth: 4
+BreakAfterAttributes: Always
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeConceptDeclarations: Always
+BreakBeforeInlineASMColon: OnlyMultiline
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: AfterComma
+BreakStringLiterals: false
+
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+
+ReflowComments: true
+
+RequiresClausePosition: OwnLine
+RequiresExpressionIndentation: OuterScope
+
+SeparateDefinitionBlocks: Always
+
+ColumnLimit: 120 # 80
+LineEnding: CRLF
+MaxEmptyLinesToKeep: 1
+
+# Packing
+CompactNamespaces: false
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: false
+
+PackConstructorInitializers: Never
+
+# Ordering
+IncludeBlocks: Regroup
+SortIncludes: CaseInsensitive
+IncludeCategories:
+  # System C Includes
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  # System C++ Includes
+  - Regex: '^<.*>'
+    Priority: 2
+  # Test and Mocks
+  - Regex: '^"((gmock)|(gtest))/[A-Za-z0-9.\/-_]+"'
+    Priority: 3
+  # Well-known library
+  - Regex: '"boost/[A-Za-z0-9.\/-_]+"'
+    Priority: 4
+  # Daq Navi
+  - Regex: '"bdaqctrl.h"'
+    Priority: 5
+  # Other Includes
+  - Regex: '.*'
+    Priority: 6
+
+SortUsingDeclarations: Lexicographic
+
+# Auto Adds
+FixNamespaceComments: true
+ShortNamespaceLines: 0
+# InsertBraces: false
+InsertNewlineAtEOF: true
+IntegerLiteralSeparator:
+  Binary: 4
+  BinaryMinDigits: 8
+  Decimal: 0
+  Hex: 0
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceAroundPointerQualifiers: Default
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatementsExceptControlMacros
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: Never
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  InCStyleCasts: false
+  InEmptyParentheses: false
+  Other: false
+SpacesInSquareBrackets: false

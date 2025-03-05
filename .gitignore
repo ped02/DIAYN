@@ -1,0 +1,15 @@
+# Python
+__pycache__
+*.egg-info
+
+# Virtual Env
+dev/
+
+# VS Code Settings
+.vscode/
+
+# Build
+build/
+
+# Mac OS
+.DS_Store

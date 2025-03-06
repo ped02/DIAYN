@@ -13,3 +13,9 @@ build/
 
 # Mac OS
 .DS_Store
+
+# Experiments
+runs/
+
+# Videos 
+*.mp4

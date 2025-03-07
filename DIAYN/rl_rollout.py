@@ -62,6 +62,7 @@ def rollout_skill(
         replay_buffer: ReplayBuffer,
         agent: AgentBase,
         device,
+        skill_index,
         skill_vector,
         reward_scale: float = 1.0
         ):
@@ -73,6 +74,8 @@ def rollout_skill(
         replay_buffer (ReplayBuffer): Replay buffer to save to
         agent (AgentBase): Agent to rollout
         device (str or pytorch device): Device of agent
+        skill_index (torch.Tensor int 1x): Skill index
+        skill_vector (torch.Tensor int 1xnum_skill): One hot skill vector
 
     Store (observation, action, scaled reward, next observation, not done)
     """
@@ -88,6 +91,8 @@ def rollout_skill(
 
     total_reward = torch.zeros(n_envs)
 
+    skill_index_torch = skill_index.repeat(n_envs, 1)
+
     for step in range(num_steps):
 
         with torch.no_grad():
@@ -98,7 +103,7 @@ def rollout_skill(
         
         rewards = pad_to_dim_2(torch.Tensor(rewards_raw))
 
-        replay_buffer.add((observations, actions, reward_scale * rewards, next_observations, 1 - torch.Tensor(terminated | truncated)), split_first_dim=True)
+        replay_buffer.add((observations, skill_index_torch, actions, reward_scale * rewards, next_observations, 1 - torch.Tensor(terminated | truncated)), split_first_dim=True)
         observations = next_observations
 
         total_reward += reward_scale * rewards.squeeze()

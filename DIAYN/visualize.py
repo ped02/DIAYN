@@ -14,20 +14,13 @@ def visualize(
         ):
     """Visualize Agent Interaction. Run until episode ends or max_episode_step is reached.
     
-    Parameters
-    ----------
-    environment_name: str
-        name of gym environment
-    max_episode_steps: int
-        number of steps in an episode to record for
-    agent: AgentBase
-        Agent to visualize
-    device: str or pytorch device
-        Device of agent
-    output_folder: str
-        Path to directory of output
-    output_name_prefix: str
-        Name prefix of output file
+    Args:
+        environment_name (str): name of gym environment
+        max_episode_steps (int): number of steps in an episode to record for
+        agent (AgentBase): Agent to visualize
+        device (str or pytorch device): Device of agent
+        output_folder (str): Path to directory of output
+        output_name_prefix (str): Name prefix of output file
     """
 
     env = gym.make(environment_name, render_mode='rgb_array')

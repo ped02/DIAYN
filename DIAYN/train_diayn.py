@@ -1,25 +1,22 @@
-import random
 import json
 import argparse
 from typing import Optional
 
 import numpy as np
 
-import matplotlib
-import matplotlib.pyplot as plt
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
 import gymnasium as gym
 
-from DIAYN import ReplayBuffer, DIAYNAgent, visualize, rollout_skill, evaluate_agent
+from DIAYN import ReplayBuffer, DIAYNAgent, rollout_skill, evaluate_agent
+
 
 def main(environment_name: str, render: bool, seed: Optional[int] = None):
-
-    render_mode = None
-    if render:
-        render_mode = 'human'
+    # render_mode = None
+    # if render:
+    #     render_mode = 'human'
 
     # env = gym.make(environment_name, render_mode=render_mode)
 
@@ -31,20 +28,24 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
     n_steps = 512
 
     envs = gym.make_vec(
-        environment_name, vectorization_mode=gym.VectorizeMode.SYNC, num_envs=n_envs
+        environment_name,
+        vectorization_mode=gym.VectorizeMode.SYNC,
+        num_envs=n_envs,
     )
 
     device = torch.device('cuda')
 
     def replay_post_processor(samples):
-        return [ torch.stack(e).to(device) for e in zip(*samples) ]
+        return [torch.stack(e).to(device) for e in zip(*samples)]
 
     replay_buffer_size = 1_000_000
-    replay_buffer = ReplayBuffer(replay_buffer_size, post_processor=replay_post_processor)
+    replay_buffer = ReplayBuffer(
+        replay_buffer_size, post_processor=replay_post_processor
+    )
 
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
-    
+
     action_low = envs.action_space.low[0]
     action_high = envs.action_space.high[0]
 
@@ -55,41 +56,35 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
     # print(f'{envs.action_space.high=}')
 
     def get_q_network(observation_dim, action_dim):
-
         q_network = torch.nn.Sequential(
             torch.nn.Linear(observation_dim + action_dim, 32),
             torch.nn.ReLU(),
-            torch.nn.Linear(32, 1)
+            torch.nn.Linear(32, 1),
         )
 
         return q_network
-    
+
     def get_policy_network(observation_dim, action_dim):
         policy_network = torch.nn.Sequential(
             torch.nn.Linear(observation_dim, 32),
             torch.nn.ReLU(),
-            torch.nn.Linear(32, 2 * action_dim)
+            torch.nn.Linear(32, 2 * action_dim),
         )
         return policy_network
-    
+
     def get_discriminiator_network(observation_dim, skill_dim):
         # Output logits
         discriminiator_network = torch.nn.Sequential(
             torch.nn.Linear(observation_dim, 32),
             torch.nn.ReLU(),
-            torch.nn.Linear(32, skill_dim)
+            torch.nn.Linear(32, skill_dim),
         )
 
         return discriminiator_network
 
+    optimizer_kwargs = {'lr': 3e-4}
 
-    optimizer_kwargs = {
-        'lr': 3e-4
-    }
-
-    log_writer = SummaryWriter(
-        'runs/diayn_4'
-    )
+    log_writer = SummaryWriter('runs/diayn_11')
 
     num_skills = 30
 
@@ -107,7 +102,7 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
         policy_optimizer_kwargs=optimizer_kwargs,
         q_optimizer_kwargs=optimizer_kwargs,
         log_writer=log_writer,
-        device=device
+        device=device,
     )
 
     # Result tracking
@@ -115,20 +110,68 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
     skill_steps = []
     skill_evaluate_episode = []
 
-    result = evaluate_agent(environment_name, 512, num_skills, diayn_agent, device=device, skill_index=0, num_skills=num_skills)
-    print([ f'{k}: {np.mean(v)}' for k,v in result.items()])
+    result = evaluate_agent(
+        environment_name,
+        512,
+        num_skills,
+        diayn_agent,
+        device=device,
+        skill_index=0,
+        num_skills=num_skills,
+    )
+    print([f'{k}: {np.mean(v)}' for k, v in result.items()])
 
+    episode = 0
+    skill_evaluate_episode.append(episode)
+    episode_skill_total_return = []
+    episode_skill_steps = []
+
+    for z in range(num_skills):
+        result_dict = evaluate_agent(
+            environment_name,
+            512,
+            num_skills,
+            diayn_agent,
+            device=device,
+            skill_index=z,
+            num_skills=num_skills,
+        )
+        episode_skill_total_return.append(np.mean(result_dict['total_return']))
+        episode_skill_steps.append(np.mean(result_dict['episode_length']))
+
+    log_writer.add_histogram(
+        'stats/Skill Total Returns',
+        np.array(episode_skill_total_return),
+        episode,
+    )
+
+    log_writer.add_histogram(
+        'stats/Skill Steps', np.array(episode_skill_steps), episode
+    )
+
+    # Train
     for episode in range(episodes):
-
         if (episode + 1) % 50 == 0:
             print(f'Starting {episode+1}/{episodes}')
 
         skill_index = torch.randint(0, num_skills, (1,))
-        skill_vector = torch.nn.functional.one_hot(skill_index, num_classes=num_skills)
+        skill_vector = torch.nn.functional.one_hot(
+            skill_index, num_classes=num_skills
+        )
 
         # Roll out
         diayn_agent.pre_episode()
-        mean_step_reward = rollout_skill(envs, num_steps=n_steps, replay_buffer=replay_buffer, agent=diayn_agent, device=device, reward_scale=0.01, skill_index=skill_index, skill_vector=skill_vector)
+        mean_step_reward = rollout_skill(
+            envs,
+            num_steps=n_steps,
+            replay_buffer=replay_buffer,
+            agent=diayn_agent,
+            device=device,
+            reward_scale=0.01,
+            skill_index=skill_index,
+            skill_vector=skill_vector,
+            episode=episode,
+        )
         # observations_raw, info = envs.reset()
         # observations = torch.Tensor(observations_raw)
 
@@ -147,19 +190,19 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
         #     observations = next_observations
 
         #     total_reward += rewards
-            
+
         # log_writer.add_scalar('stats/Rewards', total_reward.mean().item() / n_steps, episode)
-        log_writer.add_scalar('stats/Rewards', mean_step_reward / n_steps, episode)
+        log_writer.add_scalar(
+            'stats/Rewards', mean_step_reward / n_steps, episode
+        )
 
         # Train
-        diayn_agent.update(
-            replay_buffer,
-            step=episode,
-            q_train_iterations=64,
-            policy_train_iterations=4,
-            disciminator_iterations=4,
-            batch_size=32
-        )
+        # diayn_agent.update(
+        #     replay_buffer,
+        #     step=episode,
+        #     train_iterations=64,
+        #     batch_size=32
+        # )
 
         # observation, info = env.reset()
 
@@ -179,12 +222,26 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
             episode_skill_steps = []
 
             for z in range(num_skills):
-                result_dict = evaluate_agent(environment_name, 512, num_skills, diayn_agent, device=device, skill_index=z, num_skills=num_skills)
-                episode_skill_total_return.append(np.mean(result_dict['total_return']))
-                episode_skill_steps.append(np.mean(result_dict['episode_length']))
+                result_dict = evaluate_agent(
+                    environment_name,
+                    512,
+                    num_skills,
+                    diayn_agent,
+                    device=device,
+                    skill_index=z,
+                    num_skills=num_skills,
+                )
+                episode_skill_total_return.append(
+                    np.mean(result_dict['total_return'])
+                )
+                episode_skill_steps.append(
+                    np.mean(result_dict['episode_length'])
+                )
 
             log_writer.add_histogram(
-                'stats/Skill Total Returns', np.array(episode_skill_total_return), episode
+                'stats/Skill Total Returns',
+                np.array(episode_skill_total_return),
+                episode,
             )
 
             log_writer.add_histogram(
@@ -195,6 +252,34 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
             skill_steps.append(episode_skill_steps)
 
     envs.close()
+
+    # Evaluate again at end
+    skill_evaluate_episode.append(episode)
+    episode_skill_total_return = []
+    episode_skill_steps = []
+
+    for z in range(num_skills):
+        result_dict = evaluate_agent(
+            environment_name,
+            512,
+            num_skills,
+            diayn_agent,
+            device=device,
+            skill_index=z,
+            num_skills=num_skills,
+        )
+        episode_skill_total_return.append(np.mean(result_dict['total_return']))
+        episode_skill_steps.append(np.mean(result_dict['episode_length']))
+
+    log_writer.add_histogram(
+        'stats/Skill Total Returns',
+        np.array(episode_skill_total_return),
+        episode,
+    )
+
+    log_writer.add_histogram(
+        'stats/Skill Steps', np.array(episode_skill_steps), episode
+    )
 
     # Visualize
     # visualize(
@@ -221,24 +306,25 @@ def main(environment_name: str, render: bool, seed: Optional[int] = None):
     # Plot skill evolution
     data_file = 'output/data.json'
     with open(data_file, 'w') as f:
-        json.dump({
-            'total_return': skill_total_return,
-            'steps': skill_steps,
-            'episode': episode,
-        }, f)
+        json.dump(
+            {
+                'total_return': skill_total_return,
+                'steps': skill_steps,
+                'episode': episode,
+            },
+            f,
+        )
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('env_name', type=str, help='Name of environment')
-    parser.add_argument('--render', action='store_true', help='Run environment in render mode')
+    parser.add_argument(
+        '--render', action='store_true', help='Run environment in render mode'
+    )
     parser.add_argument('--seed', type=int, default=123, help='Reset seed')
 
     args = parser.parse_args()
 
-    main(
-        environment_name=args.env_name,
-        render=args.render
-        )
+    main(environment_name=args.env_name, render=args.render)

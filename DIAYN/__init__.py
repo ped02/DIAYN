@@ -14,6 +14,5 @@ __all__ = [
     'rollout',
     'rollout_skill',
     'DIAYNAgent',
-    'evaluate_agent'
+    'evaluate_agent',
 ]
-

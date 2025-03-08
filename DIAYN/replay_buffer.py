@@ -2,15 +2,17 @@ import random
 from collections import deque
 from typing import Optional, List, Callable
 
-class ReplayBuffer:
 
-    def __init__(self, buffer_size, post_processor: Callable, seed: Optional[int] = None):
+class ReplayBuffer:
+    def __init__(
+        self, buffer_size, post_processor: Callable, seed: Optional[int] = None
+    ):
         self.buffer = deque(maxlen=buffer_size)
 
         self.post_processor = post_processor
 
         self.seed = seed
-        self.random_state = random.Random(self.seed)
+        self.random_state = random.Random(self.seed)  # nosec
 
     def add(self, item, split_first_dim=False):
         if split_first_dim:
@@ -26,6 +28,6 @@ class ReplayBuffer:
 
     def get_rng_state(self):
         return self.random_state.getstate()
-        
+
     def set_rng_state(self, rng_state):
         self.random_state.setstate(rng_state)

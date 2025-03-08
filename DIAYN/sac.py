@@ -60,7 +60,7 @@ class SAC:
         self.action_high = torch.tensor(action_high, device=self.device) # [acton_dim]
 
         self.clamp_output = self.action_low is not None and self.action_high is not None
-        self.process_action = self.clamp_action if self.clamp_output else lambda x: x
+        self.process_action = self.scale_action if self.clamp_output else lambda x: x
 
         policy_kwargs = policy_kwargs
         q_network_kwargs = q_network_kwargs
@@ -95,7 +95,7 @@ class SAC:
             'std_dev_low': self.std_dev_low,
             'std_dev_high': self.std_dev_high,
             'action_low': None if self.action_low is None else self.action_low.cpu().tolist(),
-            'action_high': None if self.action_high is None else self.action_low.cpu().tolist(),
+            'action_high': None if self.action_high is None else self.action_high.cpu().tolist(),
             'clamp_output': self.clamp_output
         }
 
@@ -129,7 +129,7 @@ class SAC:
             self.action_high = torch.tensor(state_dict['action_high'], dtype=torch.float32, device=self.device)
 
         self.clamp_output = state_dict['clamp_output']
-        self.process_action = self.clamp_action if self.clamp_output else lambda x: x
+        self.process_action = self.scale_action if self.clamp_output else lambda x: x
 
     def save_checkpoint(self, filepath: str):
         checkpoint = self.get_state_dict()
@@ -145,8 +145,12 @@ class SAC:
 
         logger.info(f"Checkpoint loaded from {filepath}")
 
-    def clamp_action(self, action):
-        return action.clamp(self.action_low, self.action_high)
+    def scale_action(self, action):
+
+        z = (torch.nn.functional.tanh(action) + 1.0) / 2.0
+        sacled_action = z * (self.action_high - self.action_low) + self.action_low
+
+        return sacled_action
 
     def get_action_entropy(self, states):
         """Get action entropy"""
@@ -155,48 +159,56 @@ class SAC:
         h = torch.distributions.Normal(mean, std_dev).entropy()
         return h
     
-    def get_action(self, states, noisy=False):
+    def get_action(self, states, noisy=False, return_prob=False):
         """Sample action from policy network"""
         mean, log_std_dev = self.policy(states).chunk(2, dim=-1)
         if noisy:
             std_dev = log_std_dev.exp().clamp(self.std_dev_low, self.std_dev_high)
-            action = torch.distributions.Normal(mean, std_dev).rsample()
+            dist = torch.distributions.Normal(mean, std_dev)
+            action = dist.rsample()
+            log_prob_action = dist.log_prob(action)
         else:
             action = mean
+            log_prob_action = 0.0
         
-        return self.process_action(action)
+        processed_action = self.process_action(action)
+        return processed_action if not return_prob else (processed_action, log_prob_action)
 
-    def get_action_target(self, states, noisy=False):
+    def get_action_target(self, states, noisy=False, return_prob=False):
         """Sample action from target policy network"""
         mean, log_std_dev = self.policy_target(states).chunk(2, dim=-1)
         if noisy:
             std_dev = log_std_dev.exp().clamp(self.std_dev_low, self.std_dev_high)
-            action = torch.distributions.Normal(mean, std_dev).rsample()
+            dist = torch.distributions.Normal(mean, std_dev)
+            action = dist.rsample()
+            log_prob_action = dist.log_prob(action)
         else:
             action = mean
+            log_prob_action = 0.0
         
-        if self.clamp_output:
-            action = action.clamp(self.action_low, self.action_high)
-
-        return self.process_action(action)
+        processed_action = self.process_action(action)
+        return processed_action if not return_prob else (processed_action, log_prob_action)
         
     def get_q_loss(self, states, actions, rewards, next_states, not_dones, gamma=0.99):
         """Calculate SAC q loss"""
         with torch.no_grad():
+            policy_action, policy_action_log_prob = self.get_action_target(next_states, noisy=True, return_prob=True)
+
             augmented_next_state = torch.concat(
                 [
-                next_states, self.get_action_target(next_states, noisy=True)
+                next_states, policy_action
                 ]
                 , dim = -1
             )
 
-            next_q1 = self.q1(augmented_next_state)
-            next_q2 = self.q2(augmented_next_state)
+            next_q1 = self.q1_target(augmented_next_state)
+            next_q2 = self.q2_target(augmented_next_state)
 
             next_q = torch.minimum(next_q1, next_q2)
 
         q_target = rewards + gamma * torch.multiply(
-            (next_q+ self.alpha * self.get_action_entropy(next_states).sum(dim=-1)), not_dones
+            # (next_q+ self.alpha * self.get_action_entropy(next_states).sum(dim=-1)), not_dones
+            (next_q - self.alpha * policy_action_log_prob.sum(dim=-1)), not_dones
         )
 
         augmented_state = torch.concat([states, actions], dim=-1)
@@ -209,11 +221,14 @@ class SAC:
     
     def get_policy_loss(self, states):
         """Calculate SAC policy loss"""
-        augmented_state = torch.concat([states, self.get_action(states, noisy=True)], dim=-1)
+        policy_action, policy_action_log_prob = self.get_action(states, noisy=True, return_prob=True)
+
+        augmented_state = torch.concat([states, policy_action], dim=-1)
         current_q1 = self.q1(augmented_state)
         current_q2 = self.q2(augmented_state)
 
-        policy_loss = - torch.mean(torch.minimum(current_q1, current_q2) + self.alpha * self.get_action_entropy(states).sum(dim=-1))
+        # policy_loss = - torch.mean(torch.minimum(current_q1, current_q2) + self.alpha * self.get_action_entropy(states).sum(dim=-1))
+        policy_loss = - torch.mean(torch.minimum(current_q1, current_q2) - self.alpha * policy_action_log_prob.sum(dim=-1))
 
         return policy_loss
     

@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -45,9 +45,11 @@ def rollout(
 
         next_observations = pad_to_dim_2(torch.Tensor(next_observations_raw))
 
-        rewards = pad_to_dim_2(torch.Tensor(rewards_raw))
+        rewards = pad_to_dim_2(torch.Tensor(rewards_raw), dim=1)
 
-        replay_buffer.add((observations, actions, reward_scale * rewards, next_observations, 1 - torch.Tensor(terminated | truncated)), split_first_dim=True)
+        not_dones = pad_to_dim_2(1 - torch.Tensor(terminated | truncated), dim=1)
+
+        replay_buffer.add((observations, actions, reward_scale * rewards, next_observations, not_dones), split_first_dim=True)
         observations = next_observations
 
         total_reward += reward_scale * rewards.squeeze()
@@ -64,7 +66,8 @@ def rollout_skill(
         device,
         skill_index,
         skill_vector,
-        reward_scale: float = 1.0
+        reward_scale: float = 1.0,
+        post_step_func: Optional[Callable[[int], None]] = None
         ):
     """Rollout agent and save trajectory to replay buffer. Log reward once at the end of rollout
     
@@ -101,12 +104,17 @@ def rollout_skill(
 
         next_observations = torch.cat([pad_to_dim_2(torch.Tensor(next_observations_raw)), expanded_skill_vector], dim=-1)
         
-        rewards = pad_to_dim_2(torch.Tensor(rewards_raw))
+        rewards = pad_to_dim_2(torch.Tensor(rewards_raw), dim=1)
 
-        replay_buffer.add((observations, skill_index_torch, actions, reward_scale * rewards, next_observations, 1 - torch.Tensor(terminated | truncated)), split_first_dim=True)
+        not_dones = pad_to_dim_2(1 - torch.Tensor(terminated | truncated), dim=1)
+
+        replay_buffer.add((observations, skill_index_torch, actions, reward_scale * rewards, next_observations, not_dones), split_first_dim=True)
         observations = next_observations
 
         total_reward += reward_scale * rewards.squeeze()
+
+        if post_step_func is not None:
+            post_step_func(step)
     
     mean_step_reward = total_reward.mean().item()/num_steps
 

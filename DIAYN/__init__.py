@@ -5,6 +5,15 @@ from .visualize import visualize
 from .rl_rollout import rollout, rollout_skill
 from .diayn import DIAYNAgent
 from .evaluate_agent import evaluate_agent
+
 __all__ = [
-    'ReplayBuffer'
+    'ReplayBuffer',
+    'AgentBase',
+    'SAC',
+    'visualize',
+    'rollout',
+    'rollout_skill',
+    'DIAYNAgent',
+    'evaluate_agent'
 ]
+

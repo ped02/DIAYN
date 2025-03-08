@@ -13,4 +13,6 @@ Note: If you're cloning into a workspace, I recommend changing name of directory
 
 
 ## Note on project organization
-Not very strict. I put running code and experiments into the `examples` directory. The code in the `DIAYN` module shouldnt really change across experiments unless you're adding a new feature.
+Not very strict.
+
+(Rachanon) put running code and experiments into the `examples` directory. The code in the `DIAYN` module shouldnt really change across experiments unless you're adding a new feature.

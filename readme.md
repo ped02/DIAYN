@@ -11,6 +11,13 @@ The `setup.sh` or `setup.bat` script will setup a virtual environment for the pr
 
 Note: If you're cloning into a workspace, I recommend changing name of directory to clone into. VS Code may have problem with code suggestions.
 
+To use non default python for setup
+```
+PYTHON_EXEC=<path of python to use> ./scripts/setup.sh
+```
+
+
+Installing DIAYN
 ```
 # Activate venv
 

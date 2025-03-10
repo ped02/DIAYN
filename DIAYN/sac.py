@@ -98,7 +98,7 @@ class SAC:
             [*self.q1.parameters(), *self.q2.parameters()], **q_optimizer_kwargs
         )
 
-    def get_state_dict(self, state_dict: Mapping[str, Any]):
+    def get_state_dict(self, state_dict: Optional[Mapping[str, Any]] = None):
         checkpoint = {
             'policy_state_dict': self.policy.state_dict(),
             'q1_state_dict': self.q1.state_dict(),

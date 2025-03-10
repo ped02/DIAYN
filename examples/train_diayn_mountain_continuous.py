@@ -206,7 +206,7 @@ def main(
     log_path: Optional[str] = None,
     plot_dpi: float = 150.0,
     plot_trajectories: int = 5,
-    plot_train_steps_period: Optional[int] = 1500,
+    plot_train_steps_period: Optional[int] = 15000,
     evaluate_episodes: int = 10,
 ):
     device = torch.device('cuda')
@@ -390,9 +390,9 @@ def main(
 if __name__ == '__main__':
     environment_name = 'MountainCarContinuous-v0'
 
-    episodes = 5000
+    episodes = 1000
     num_envs = 4
-    num_steps = 1000
+    num_steps = 200  # 1000
     num_skills = 50
 
     log_path = 'runs/diayn_mountain_1'

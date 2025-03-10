@@ -36,6 +36,34 @@ class DIAYNAgent(SAC):
             self.discriminator.parameters(), **discriminator_optimizer_kwargs
         )
 
+    def get_state_dict(self, state_dict=None):
+        state_dict = super().get_state_dict(state_dict)
+
+        checkpoint = {
+            'state_dim': self.state_dim,
+            'skill_dim': self.skill_dim,
+            'discriminator_state_dict': self.discriminator.state_dict(),
+            'discriminator_optimizer_state_dict': self.discriminator_optimizer.state_dict(),
+        }
+
+        if state_dict is None:
+            checkpoint = state_dict | checkpoint
+
+        return checkpoint
+
+    def set_state_dict(self, state_dict):
+        super().set_state_dict(state_dict)
+
+        self.state_dim = state_dict['state_dim']
+        self.skill_dim = state_dict['skill_dim']
+
+        self.discriminator.load_state_dict(
+            state_dict['discriminator_state_dict']
+        )
+        self.discriminator_optimizer.load_state_dict(
+            state_dict['discriminator_optimizer_state_dict']
+        )
+
     def update(
         self,
         replay_buffer,

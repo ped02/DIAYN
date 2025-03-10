@@ -6,6 +6,8 @@ from .rl_rollout import rollout, rollout_skill
 from .diayn import DIAYNAgent
 from .evaluate_agent import evaluate_agent
 
+import DIAYN.envs
+
 __all__ = [
     'ReplayBuffer',
     'AgentBase',
@@ -16,3 +18,5 @@ __all__ = [
     'DIAYNAgent',
     'evaluate_agent',
 ]
+
+_ = DIAYN.envs  # Dummy reference

@@ -11,6 +11,12 @@ The `setup.sh` or `setup.bat` script will setup a virtual environment for the pr
 
 Note: If you're cloning into a workspace, I recommend changing name of directory to clone into. VS Code may have problem with code suggestions.
 
+```
+# Activate venv
+
+# Install Module
+python3 -m pip install -e .
+```
 
 ## Note on project organization
 Not very strict.

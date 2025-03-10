@@ -3,7 +3,6 @@ from typing import Optional
 
 import numpy as np
 
-
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
@@ -22,6 +21,7 @@ def main(
     steps_per_episode: int,
     num_skills: int,
     log_path: Optional[str] = None,
+    model_save_path: Optional[str] = None,
     plot_dpi: float = 150.0,
     plot_trajectories: int = 5,
     plot_train_steps_period: Optional[int] = 15000,
@@ -113,6 +113,7 @@ def main(
 
     def plot_reward_histogram():
         total_returns = []
+        mean_step_reward = []
         for z in range(num_skills):
             result_dict = evaluate_agent(
                 environment_name,
@@ -124,8 +125,18 @@ def main(
                 num_skills=num_skills,
             )
             total_returns.append(np.mean(result_dict['total_return']))
+            mean_step_reward.append(
+                np.nanmean(
+                    result_dict['total_return'] / result_dict['episode_length']
+                )
+            )
         log_writer.add_histogram(
             'Stats/Skill Total Return', np.array(total_returns), total_steps
+        )
+        log_writer.add_histogram(
+            'Stats/Skill Average Reward',
+            np.array(mean_step_reward),
+            total_steps,
         )
 
     def training_function(step):
@@ -180,6 +191,10 @@ def main(
     if log_writer is not None:
         plot_reward_histogram()
 
+    # Save model
+    if model_save_path is not None:
+        diayn_agent.save_checkpoint(model_save_path)
+
 
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
@@ -189,7 +204,8 @@ if __name__ == '__main__':
     num_steps = 200  # 1000
     num_skills = 50
 
-    log_path = 'runs/diayn_hopper_1'
+    log_path = 'runs/diayn_hopper_3'
+    model_save_path = 'output/diayn_hopper_3.pt'
 
     main(
         environment_name,
@@ -198,4 +214,5 @@ if __name__ == '__main__':
         num_steps,
         num_skills,
         log_path=log_path,
+        model_save_path=model_save_path,
     )

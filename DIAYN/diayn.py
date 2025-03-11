@@ -46,7 +46,7 @@ class DIAYNAgent(SAC):
             'discriminator_optimizer_state_dict': self.discriminator_optimizer.state_dict(),
         }
 
-        if state_dict is None:
+        if state_dict is not None:
             checkpoint = state_dict | checkpoint
 
         return checkpoint

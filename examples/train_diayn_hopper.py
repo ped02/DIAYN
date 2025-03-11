@@ -1,5 +1,6 @@
 import time
 from typing import Optional
+import os
 
 import numpy as np
 
@@ -28,6 +29,7 @@ def main(
     evaluate_episodes: int = 10,
 ):
     device = torch.device('cuda')
+    print(f'Using device: {device}')
 
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
@@ -204,8 +206,21 @@ if __name__ == '__main__':
     num_steps = 200  # 1000
     num_skills = 50
 
-    log_path = 'runs/diayn_hopper_3'
-    model_save_path = 'output/diayn_hopper_3.pt'
+    log_path = 'runs/diayn_hopper_3_roman'
+
+    # Check if output folder exists. If not, create it
+    model_save_folder = 'weights/diayn_hopper_3'
+    if model_save_folder is not None:
+        os.makedirs(model_save_folder, exist_ok=True)
+
+    
+    
+    # look through folder, and set model name to be the next number
+    idx = 0
+    while os.path.exists(model_save_folder + '/model' + str(idx) + '.pt'):
+        idx += 1
+    model_save_path = model_save_folder + '/' + str(idx) + '.pt'
+    print("Model save path: ", model_save_path)
 
     main(
         environment_name,

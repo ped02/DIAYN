@@ -16,7 +16,11 @@ build/
 
 # Experiments
 runs/
+weights/
 
 # Videos
 *.mp4
 output
+
+# Virtual Env (Roman's)
+venv/

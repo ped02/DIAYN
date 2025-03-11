@@ -197,12 +197,17 @@ if __name__ == '__main__':
     num_steps = 200  # 1000
     num_skills = 50
 
-    log_path = 'runs/diayn_hopper_2'
-    model_load_path = 'output/diayn_hopper_2.pt'
+    model_load_path = 'weights/diayn_hopper_3/0.pt'
 
     visualize_skill = None
 
-    video_output_folder = 'output/diayn_hopper_2_video'
+
+
+    # Check if output folder exists. If not, create it
+    video_output_folder = 'videos/diayn_hopper_3_video'
+    if video_output_folder is not None:
+        os.makedirs(video_output_folder, exist_ok=True)
+
     video_prefix_path = 'rl_video'
 
     main(

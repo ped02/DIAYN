@@ -25,6 +25,17 @@ Installing DIAYN
 python3 -m pip install -e .
 ```
 
+## Tensorboard Diagram Visualization
+
+```
+# Navigate to example folder
+cd <project_dir>/examples
+
+# Open tensorboard using data from runs folder
+tensorboard --logdir=runs
+```
+
+
 ## Note on project organization
 Not very strict.
 

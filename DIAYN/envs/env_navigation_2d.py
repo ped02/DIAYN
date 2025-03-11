@@ -51,7 +51,7 @@ class EnvNavigation2D(gym.Env):
         truncated = (
             self.current_step >= self.max_steps
         )  # Episode ends after max steps
-
+        
         return (
             self.state,
             reward,

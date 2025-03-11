@@ -188,21 +188,37 @@ def main(
             f'[Skill {visualize_skill}] Mean Step Reward: {np.nanmean(result_dict["total_return"]/result_dict["episode_length"])} Mean Total Return: {np.mean(result_dict["total_return"])}'
         )
 
+def checkpoint_check(filepath: str):
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Checkpoint file '{filepath}' not found")
+
+    checkpoint = torch.load(filepath, map_location='cuda')
+    print("Checkpoint contents:", checkpoint)  # Add this line to debug
+    # self.set_state_dict(checkpoint)
+
+    # logger.info(f'Checkpoint loaded from {filepath}')
 
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
 
     episodes = 1000
     num_envs = 4
-    num_steps = 200  # 1000
+    num_steps = 1000 # 1000
     num_skills = 50
 
-    log_path = 'runs/diayn_hopper_2'
-    model_load_path = 'output/diayn_hopper_2.pt'
+    model_load_path = 'weights/diayn_hopper_3/1.pt'
+
+    # checkpoint_check(model_load_path)
 
     visualize_skill = None
 
-    video_output_folder = 'output/diayn_hopper_2_video'
+
+
+    # Check if output folder exists. If not, create it
+    video_output_folder = 'videos/diayn_hopper_3'
+    if video_output_folder is not None:
+        os.makedirs(video_output_folder, exist_ok=True)
+
     video_prefix_path = 'rl_video'
 
     main(

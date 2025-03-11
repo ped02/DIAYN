@@ -12,6 +12,8 @@ from torch.utils.tensorboard import SummaryWriter
 import gymnasium as gym
 
 from DIAYN import ReplayBuffer, DIAYNAgent, rollout_skill
+import DIAYN.envs
+
 from DIAYN.utils import (
     replay_post_processor,
     pad_to_dim_2,
@@ -194,6 +196,7 @@ def main(
     plot_train_steps_period: Optional[int] = 1500,
 ):
     device = torch.device('cuda')
+    print(f'Using device: {device}')
 
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
@@ -361,6 +364,9 @@ if __name__ == '__main__':
 
     log_path = 'runs/diayn_2d_3'
 
+    # (Roman) experimenting with other values
+    batch_size = 256
+ 
     main(
         environment_name,
         num_envs,

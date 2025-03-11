@@ -99,6 +99,10 @@ class SAC:
         )
 
     def get_state_dict(self, state_dict: Optional[Mapping[str, Any]] = None):
+        '''
+        Return parameters of agent and current weights of models
+        '''
+
         checkpoint = {
             'policy_state_dict': self.policy.state_dict(),
             'q1_state_dict': self.q1.state_dict(),
@@ -128,6 +132,11 @@ class SAC:
         return checkpoint
 
     def set_state_dict(self, state_dict: Mapping[str, Any]):
+        ''''
+        Load parameters of agent and weights of models'
+        I guess in case we want to start training from a checkpoint?
+        '''
+
         self.policy.load_state_dict(state_dict['policy_state_dict'])
         self.q1.load_state_dict(state_dict['q1_state_dict'])
         self.q2.load_state_dict(state_dict['q2_state_dict'])
@@ -169,6 +178,10 @@ class SAC:
         )
 
     def save_checkpoint(self, filepath: str):
+        '''
+        Save to load using load_checkpoint later
+        '''
+
         checkpoint = self.get_state_dict()
         torch.save(checkpoint, filepath)
         logger.info(f'Checkpoint saved to {filepath}')
@@ -183,6 +196,10 @@ class SAC:
         logger.info(f'Checkpoint loaded from {filepath}')
 
     def scale_action(self, action):
+        '''
+        Scale action to be between 0 and 1
+        '''
+
         z = (torch.nn.functional.tanh(action) + 1.0) / 2.0
         sacled_action = (
             z * (self.action_high - self.action_low) + self.action_low
@@ -191,14 +208,20 @@ class SAC:
         return sacled_action
 
     def get_action_entropy(self, states):
-        """Get action entropy"""
+        """
+        Get entropy of policy distribution given each state
+        """
+
         mean, log_std_dev = self.policy(states).chunk(2, dim=-1)
         std_dev = log_std_dev.exp().clamp(self.std_dev_low, self.std_dev_high)
         h = torch.distributions.Normal(mean, std_dev).entropy()
         return h
 
     def get_action(self, states, noisy=False, return_prob=False):
-        """Sample action from policy network"""
+        """
+        Sample action from policy network
+        """
+
         mean, log_std_dev = self.policy(states).chunk(2, dim=-1)
         if noisy:
             std_dev = log_std_dev.exp().clamp(
@@ -210,7 +233,7 @@ class SAC:
         else:
             action = mean
             log_prob_action = 0.0
-
+        
         processed_action = self.process_action(action)
         return (
             processed_action

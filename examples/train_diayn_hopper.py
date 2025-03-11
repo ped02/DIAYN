@@ -201,9 +201,9 @@ def main(
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
 
-    episodes = 1000
+    episodes = 10
     num_envs = 4
-    num_steps = 200  # 1000
+    num_steps = 10  # 1000
     num_skills = 50
 
     log_path = 'runs/diayn_hopper_3_roman'
@@ -217,7 +217,7 @@ if __name__ == '__main__':
     
     # look through folder, and set model name to be the next number
     idx = 0
-    while os.path.exists(model_save_folder + '/model' + str(idx) + '.pt'):
+    while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
         idx += 1
     model_save_path = model_save_folder + '/' + str(idx) + '.pt'
     print("Model save path: ", model_save_path)

@@ -9,6 +9,13 @@ import gymnasium as gym
 
 from DIAYN import DIAYNAgent, evaluate_agent, visualize
 
+DIAYN_PARAMS = {
+    'layer_size': 300,
+    'batch_size': 128,
+    'num_steps': 1000,
+    'num_epochs': 10000,
+    'lr': 3e-4,
+}
 
 def main(
     environment_name: str,
@@ -40,41 +47,44 @@ def main(
 
     # Setup networks
     def get_q_network(observation_dim, action_dim):
+        layer_size = DIAYN_PARAMS['layer_size']
         q_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim + action_dim, 256),
+            torch.nn.Linear(observation_dim + action_dim, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(layer_size, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 1),
+            torch.nn.Linear(layer_size, 1),
         )
 
         return q_network
 
     def get_policy_network(observation_dim, action_dim):
+        layer_size = DIAYN_PARAMS['layer_size']
         policy_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 256),
+            torch.nn.Linear(observation_dim, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(layer_size, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 2 * action_dim),
+            torch.nn.Linear(layer_size, 2 * action_dim),
         )
         return policy_network
 
     def get_discriminiator_network(observation_dim, skill_dim):
         # Output logits
+        layer_size = DIAYN_PARAMS['layer_size']
         discriminiator_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 256),
+            torch.nn.Linear(observation_dim, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(layer_size, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, skill_dim),
+            torch.nn.Linear(layer_size, skill_dim),
         )
 
         return discriminiator_network
 
-    q_optimizer_kwargs = {'lr': 1e-3}
+    q_optimizer_kwargs = {'lr': DIAYN_PARAMS['lr']}
     discriminator_optimizer_kwargs = {'lr': 4e-4}
-    policy_optimizer_kwargs = {'lr': 1e-4}
+    policy_optimizer_kwargs = {'lr': DIAYN_PARAMS['lr']}
 
     # Setup agent
     diayn_agent = DIAYNAgent(
@@ -205,8 +215,9 @@ if __name__ == '__main__':
     num_envs = 4
     num_steps = 1000 # 1000
     num_skills = 50
-
-    model_load_path = 'weights/diayn_hopper_3/1.pt'
+    
+    checkpoint_name = 'checkpoint_600'
+    model_load_path = '/home/rmineyev3/DIAYN/examples/hopper_runs/run_6/weights/' + checkpoint_name + ".pt"
 
     # checkpoint_check(model_load_path)
 
@@ -215,7 +226,7 @@ if __name__ == '__main__':
 
 
     # Check if output folder exists. If not, create it
-    video_output_folder = 'videos/diayn_hopper_3'
+    video_output_folder = '/home/rmineyev3/DIAYN/examples/hopper_runs/run_6/weights/' + checkpoint_name + '_videos'
     if video_output_folder is not None:
         os.makedirs(video_output_folder, exist_ok=True)
 

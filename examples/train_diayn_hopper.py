@@ -14,6 +14,27 @@ from DIAYN.utils import (
     replay_post_processor,
 )
 
+DIAYN_PARAMS = {
+    'layer_size': 300,
+    'batch_size': 128,
+    'num_steps': 1000,
+    'num_epochs': 10000,
+    'lr': 3e-4,
+}
+
+# SAC_PARAMS = {
+#     'Hopper-v5': {
+#         'layer_size': 128,
+#         'lr': 3e-4,
+#         'discount': 0.99,
+#         'batch_size': 128,
+#         'num_steps': 1000,
+#         'num_epochs': 3000,
+#     },
+# }
+
+
+
 
 def main(
     environment_name: str,
@@ -22,11 +43,12 @@ def main(
     steps_per_episode: int,
     num_skills: int,
     log_path: Optional[str] = None,
-    model_save_path: Optional[str] = None,
+    model_save_folder: Optional[str] = None,
     plot_dpi: float = 150.0,
     plot_trajectories: int = 5,
     plot_train_steps_period: Optional[int] = 15000,
     evaluate_episodes: int = 10,
+    model_load_path: Optional[str] = None,
 ):
     device = torch.device('cuda')
     print(f'Using device: {device}')
@@ -56,41 +78,44 @@ def main(
 
     # Setup networks
     def get_q_network(observation_dim, action_dim):
+        layer_size = DIAYN_PARAMS['layer_size']
         q_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim + action_dim, 256),
+            torch.nn.Linear(observation_dim + action_dim, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(layer_size, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 1),
+            torch.nn.Linear(layer_size, 1),
         )
 
         return q_network
 
     def get_policy_network(observation_dim, action_dim):
+        layer_size = DIAYN_PARAMS['layer_size']
         policy_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 256),
+            torch.nn.Linear(observation_dim, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(layer_size, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 2 * action_dim),
+            torch.nn.Linear(layer_size, 2 * action_dim),
         )
         return policy_network
 
     def get_discriminiator_network(observation_dim, skill_dim):
         # Output logits
+        layer_size = DIAYN_PARAMS['layer_size']
         discriminiator_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 256),
+            torch.nn.Linear(observation_dim, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(layer_size, layer_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, skill_dim),
+            torch.nn.Linear(layer_size, skill_dim),
         )
 
         return discriminiator_network
 
-    q_optimizer_kwargs = {'lr': 1e-3}
+    q_optimizer_kwargs = {'lr': DIAYN_PARAMS['lr']}
     discriminator_optimizer_kwargs = {'lr': 4e-4}
-    policy_optimizer_kwargs = {'lr': 1e-4}
+    policy_optimizer_kwargs = {'lr': DIAYN_PARAMS['lr']}
 
     # Setup agent
     diayn_agent = DIAYNAgent(
@@ -110,6 +135,9 @@ def main(
         log_writer=log_writer,
     )
 
+    if model_load_path is not None:
+        diayn_agent.load_checkpoint(model_load_path)
+    
     # Training
     total_steps = 0
 
@@ -152,7 +180,7 @@ def main(
                 q_train_iterations=1,
                 policy_train_iterations=1,
                 discriminator_train_iterations=1,
-                batch_size=64,
+                batch_size=DIAYN_PARAMS['batch_size'],
             )
 
             total_steps += 1
@@ -167,10 +195,13 @@ def main(
 
     start_time = time.time()
     for episode in range(episodes):
-        if (episode + 1) % 200 == 0:
+        if (episode + 1) % 50 == 0:
             print(
                 f'Starting {episode + 1} / {episodes} @ {time.time() - start_time:.3f} sec'
             )
+            # Save model
+            if model_save_folder is not None:
+                diayn_agent.save_checkpoint(model_save_folder + f'/checkpoint_{episode + 1}.pt')
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
             skill_index, num_classes=num_skills
@@ -194,33 +225,53 @@ def main(
         plot_reward_histogram()
 
     # Save model
-    if model_save_path is not None:
-        diayn_agent.save_checkpoint(model_save_path)
+    if model_save_folder is not None:
+        diayn_agent.save_checkpoint(model_save_folder + '_final.pt')
 
 
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
 
-    episodes = 10
+    episodes = DIAYN_PARAMS['num_epochs']
     num_envs = 4
-    num_steps = 10  # 1000
+    num_steps = DIAYN_PARAMS['num_steps']  # 1000
     num_skills = 50
 
-    log_path = 'runs/diayn_hopper_3_roman'
-
-    # Check if output folder exists. If not, create it
-    model_save_folder = 'weights/diayn_hopper_3'
-    if model_save_folder is not None:
-        os.makedirs(model_save_folder, exist_ok=True)
-
-    
-    
-    # look through folder, and set model name to be the next number
+    # Create new run folder for current run
+    root_dir = 'hopper_runs'
     idx = 0
-    while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
+    while os.path.exists(root_dir + '/run_' + str(idx)):
         idx += 1
-    model_save_path = model_save_folder + '/' + str(idx) + '.pt'
-    print("Model save path: ", model_save_path)
+    
+    root_dir = root_dir + '/run_' + str(idx)
+    os.makedirs(root_dir, exist_ok=True)
+
+    # Create log folder inside new run folder
+    log_path = root_dir + '/log'
+    os.makedirs(log_path, exist_ok=True)
+    
+    # Create model save folder inside new run folder
+    model_save_folder = root_dir + "/weights"
+    os.makedirs(model_save_folder, exist_ok=True)
+
+    # Use model_load_path if we want
+    use_pretrained = True
+
+    if use_pretrained:
+        model_load_path = '/home/rmineyev3/DIAYN/examples/hopper_runs/run_3/weights/checkpoint_1250.pt'
+    else:
+        model_load_path = None
+    
+    
+    # # look through folder, and set model name to be the next number
+    # idx = 0
+    # while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
+    #     idx += 1
+    # model_save_path = model_save_folder + '/' + str(idx) + '.pt'
+
+    print("Log path: ", log_path)
+    print("Model save folder: ", model_save_folder)
+    print("Model load path: ", model_load_path)
 
     main(
         environment_name,
@@ -229,5 +280,6 @@ if __name__ == '__main__':
         num_steps,
         num_skills,
         log_path=log_path,
-        model_save_path=model_save_path,
+        model_save_folder=model_save_folder,
+        model_load_path=model_load_path
     )

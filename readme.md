@@ -14,6 +14,10 @@ $$r_z(s,a)\triangleq \log q_\phi (z|s)-\log p(z)$$
 
 where $q_\phi(z|s)$ represents the discriminator that attempts to identify the skill $z$ from the state $s$ and $p(z)$ is the prior distribution over the skills.
 
+## Todo:
+- Learn latent layers from state information
+- Implement network distillation
+
 ## Results
 
 DIAYN aims to maximise the mutual information between latent skill variables and states visited by the agent, ensuring that different skills lead to distinct trajectories.

@@ -3,6 +3,8 @@ from typing import Optional
 
 import numpy as np
 
+import os
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
@@ -117,17 +119,21 @@ def plot_skill_trajectories(
             trajectory = skills_trajectories_np[
                 skill_id, traj_id
             ]  # Extract (16, 2) trajectory
+
+            y_values = trajectory[:, y_state_index]
+            time_steps = np.arange(len(y_values))
+
             plt.plot(
-                trajectory[:, x_state_index],
-                trajectory[:, y_state_index],
+                time_steps,
+                y_values,
                 color=colors(skill_id),
                 label=f'Skill {skill_id}' if traj_id == 0 else '',
             )
 
     fig.gca().set_xlim(
         (
-            env.observation_space.low[x_state_index],
-            env.observation_space.high[x_state_index],
+            0, 
+            steps_per_episode
         )
     )
     fig.gca().set_ylim(
@@ -204,12 +210,14 @@ def main(
     steps_per_episode: int,
     num_skills: int,
     log_path: Optional[str] = None,
+    model_save_path: Optional[str] = None,
     plot_dpi: float = 150.0,
     plot_trajectories: int = 5,
     plot_train_steps_period: Optional[int] = 15000,
     evaluate_episodes: int = 10,
 ):
     device = torch.device('cuda')
+    print(f'Using device: {device}')
 
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
@@ -297,7 +305,7 @@ def main(
         skill_trajectory_visual = plot_skill_trajectories(
             environment_name,
             plot_trajectories,
-            min(num_steps, 30),
+            num_steps,
             diayn_agent,
             plot_dpi,
         )
@@ -359,10 +367,9 @@ def main(
 
     start_time = time.time()
     for episode in range(episodes):
-        if (episode + 1) % 200 == 0:
-            print(
-                f'Starting {episode + 1} / {episodes} @ {time.time() - start_time:.3f} sec'
-            )
+        print(
+            f'Starting {episode + 1} / {episodes} @ {time.time() - start_time:.3f} sec'
+        )
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
             skill_index, num_classes=num_skills
@@ -386,16 +393,30 @@ def main(
         plot_skill_trajectories_phase()
         plot_reward_histogram()
 
+    if model_save_path is not None:
+        diayn_agent.save_checkpoint(model_save_path)
+
 
 if __name__ == '__main__':
     environment_name = 'MountainCarContinuous-v0'
 
-    episodes = 1000
-    num_envs = 4
+    episodes = 300
+    num_envs = 5
     num_steps = 200  # 1000
-    num_skills = 50
+    num_skills = 30
 
     log_path = 'runs/diayn_mountain_1'
+
+    # Check if output folder exists. If not, create it
+    model_save_folder = 'weights/mountain_car'
+    if model_save_folder is not None:
+        os.makedirs(model_save_folder, exist_ok=True)
+
+    idx = 0
+    while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
+        idx += 1
+    model_save_path = model_save_folder + '/' + str(idx) + '.pt'
+    print("Model save path: ", model_save_path)
 
     main(
         environment_name,
@@ -404,4 +425,6 @@ if __name__ == '__main__':
         num_steps,
         num_skills,
         log_path=log_path,
+        plot_train_steps_period=2000,
+        model_save_path=model_save_path
     )

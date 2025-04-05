@@ -21,6 +21,7 @@ def main(
     episodes: int,
     steps_per_episode: int,
     num_skills: int,
+    batch_size: int,
     log_path: Optional[str] = None,
     model_save_path: Optional[str] = None,
     plot_dpi: float = 150.0,
@@ -35,6 +36,7 @@ def main(
     log_writer = None if log_path is None else SummaryWriter(log_path)
 
     # Setup env variables
+    print("Test")
     envs = gym.make_vec(
         environment_name,
         vectorization_mode=gym.VectorizeMode.SYNC,
@@ -152,7 +154,7 @@ def main(
                 q_train_iterations=1,
                 policy_train_iterations=1,
                 discriminator_train_iterations=1,
-                batch_size=64,
+                batch_size=batch_size,
             )
 
             total_steps += 1
@@ -201,10 +203,11 @@ def main(
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
 
-    episodes = 10
-    num_envs = 4
-    num_steps = 10  # 1000
+    episodes = 1000
+    num_envs = 16
+    num_steps = 1000  # 1000
     num_skills = 50
+    batch_size = 64
 
     log_path = 'runs/diayn_hopper_3_roman'
 
@@ -230,4 +233,5 @@ if __name__ == '__main__':
         num_skills,
         log_path=log_path,
         model_save_path=model_save_path,
+        batch_size=batch_size,
     )

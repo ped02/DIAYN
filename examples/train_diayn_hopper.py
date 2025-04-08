@@ -199,7 +199,6 @@ def main(
     if model_save_path is not None:
         diayn_agent.save_checkpoint(model_save_path)
 
-
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
 

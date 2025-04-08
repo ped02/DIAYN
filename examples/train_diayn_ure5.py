@@ -3,6 +3,8 @@ from typing import Optional
 
 import numpy as np
 
+import os
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
@@ -258,6 +260,7 @@ def main(
     steps_per_episode: int,
     num_skills: int,
     log_path: Optional[str] = None,
+    model_save_path: Optional[str] = None,
     plot_dpi: float = 150.0,
     plot_trajectories: int = 5,
     plot_train_steps_period: Optional[int] = 1500,
@@ -334,7 +337,7 @@ def main(
     # obs, info = env.reset()  # Test reset
     # print("Initial observation:", obs)
 
-    envs = SyncVectorEnv([make_env() for _ in range(1)])
+    envs = SyncVectorEnv([make_env() for _ in range(num_envs)])
 
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
@@ -483,6 +486,10 @@ def main(
     if log_writer is not None:
         plot_skill_trajectories_phase()
 
+    # Save model
+    if model_save_path is not None:
+        diayn_agent.save_checkpoint(model_save_path)
+
 
 if __name__ == '__main__':
     environment_name = 'Navigation2D-v0'
@@ -494,11 +501,24 @@ if __name__ == '__main__':
 
     log_path = 'runs/diayn_ur5e'
 
+    # Check if output folder exists. If not, create it
+    model_save_folder = 'weights/diayn_ur5e'
+    if model_save_folder is not None:
+        os.makedirs(model_save_folder, exist_ok=True)
+
+    # look through folder, and set model name to be the next number
+    idx = 0
+    while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
+        idx += 1
+    model_save_path = model_save_folder + '/' + str(idx) + '.pt'
+    print("Model save path: ", model_save_path)
+
     main(
         environment_name,
         num_envs,
         episodes,
         num_steps,
         num_skills,
+        model_save_path=model_save_path,
         log_path=log_path,
     )

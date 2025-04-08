@@ -1,5 +1,6 @@
 import os
 from typing import Optional, Union
+import yaml
 
 import numpy as np
 
@@ -253,26 +254,27 @@ def checkpoint_check(filepath: str):
     # logger.info(f'Checkpoint loaded from {filepath}')
 
 if __name__ == '__main__':
-    environment_name = 'Lift'
-    robots = "Panda"
 
-    episodes = 2000
-    num_envs = 4
-    num_steps = 15 # 1000
-    num_skills = 6
+    # Read config file for all settings
+    with open("config.yaml", "r") as file:
+        config = yaml.safe_load(file)
+    
+    environment_name = config['params']['environment_name']
+    robots = config['params']['robots']
+    num_envs = config['params']['num_envs']
+    num_steps = config['params']['num_steps']
+    num_skills = config['params']['num_skills']
 
-    model_load_path = 'weights/diayn_ur5e/0.pt'
+    # Folder paths
+    model_load_path = config['file_params']['model_load_path']
+    video_output_folder = config['file_params']['video_output_folder']
+    video_prefix_path = config['file_params']['video_prefix_path']
 
-    # checkpoint_check(model_load_path)
-
+    # If we want a specific skill to be visualized
     visualize_skill = None
 
-    # Check if output folder exists. If not, create it
-    video_output_folder = 'videos/diayn_ur5e'
     if video_output_folder is not None:
         os.makedirs(video_output_folder, exist_ok=True)
-
-    video_prefix_path = 'rl_video'
 
     main(
         environment_name,

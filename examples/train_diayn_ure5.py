@@ -1,5 +1,6 @@
 import time
 from typing import Optional
+import yaml
 
 import numpy as np
 
@@ -38,23 +39,7 @@ from DIAYN.utils import (
     image_numpy_to_torch,
 )
 
-# def make_env():
-#     def _thunk():
-#         print("Creating new environment") 
-#         env = suite.make(
-#             env_name="Lift",  # your robosuite env
-#             robots="Panda",
-#             use_camera_obs=False,
-#             has_offscreen_renderer=False,
-#             has_renderer=False,
-#             control_freq=20,
-#         )
-#         env = GymWrapper(env)
-#         env.metadata = {"render_modes": [], "autoreset": False}  # 🔧 Add this line
-#         return env
-#     return _thunk
-
-def make_env():
+def make_env(env_name, robots):
     def _thunk():
         print("Creating new environment")
 
@@ -64,8 +49,8 @@ def make_env():
         )
 
         config = {
-            "env_name": "Lift",
-            "robots": "Panda",
+            "env_name": env_name,
+            "robots": robots,
             "controller_configs": controller_config,
         }
 
@@ -81,7 +66,7 @@ def make_env():
             hard_reset=False,
         )
         env = GymWrapper(robosuite_env)
-
+        
         # Ensure metadata exists and is a dict before modifying
         if env.metadata is None:
             env.metadata = {}
@@ -255,6 +240,7 @@ def plot_phase_skill(
 
 def main(
     environment_name: str,
+    robots: str,
     num_envs: int,
     episodes: int,
     steps_per_episode: int,
@@ -317,27 +303,8 @@ def main(
         config["env_configuration"] = args.config
     else:
         args.config = None
-
-    # ROMAN: Currently not actually a gym environment. Read documentation to change it to that
-
-    # Setup env variables
-    # envs = gym.make_vec(
-    #     config.get("env_name"),
-    #     vectorization_mode=gym.VectorizeMode.SYNC,
-    #     num_envs=num_envs,
-    # )
-    # try:
-    #     envs = SyncVectorEnv([make_env() for _ in range(4)])
-    #     obs, info = envs.reset()
-    #     print("Env reset successful. Obs shape:", np.shape(obs))
-    # except Exception as e:
-    #     print("Error during vector env setup:", e)
-
-    # env = make_env()()  # Create the environment
-    # obs, info = env.reset()  # Test reset
-    # print("Initial observation:", obs)
-
-    envs = SyncVectorEnv([make_env() for _ in range(num_envs)])
+    
+    envs = SyncVectorEnv([make_env(environment_name, robots) for _ in range(num_envs)])
 
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
@@ -458,12 +425,18 @@ def main(
     if log_writer is not None:
         plot_skill_trajectories_phase()
 
+        
+    print("------------------------------- Beginning training -------------------------------")
     start_time = time.time()
     for episode in range(episodes):
-        if (episode + 1) % 200 == 0:
+        if (episode + 1) % 50 == 0:
             print(
                 f'Starting {episode + 1} / {episodes} @ {time.time() - start_time:.3f} sec'
             )
+
+            if model_save_path is not None:
+                print("Saving model states at episode " + str(episode + 1))
+                diayn_agent.save_checkpoint(model_save_path)
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
             skill_index, num_classes=num_skills
@@ -488,37 +461,54 @@ def main(
 
     # Save model
     if model_save_path is not None:
+        print("Saving final model states")
         diayn_agent.save_checkpoint(model_save_path)
 
 
 if __name__ == '__main__':
-    environment_name = 'Navigation2D-v0'
+    # Read config file for all settings
+    # Print current directory
+    print("Current working directory:", os.getcwd())
+    with open("./config/ur5e_config.yaml", "r") as file:
+        config = yaml.safe_load(file)
+    
+    environment_name = config['params']['environment_name']
+    robots = config['params']['robots']
+    num_envs = config['params']['num_envs']
+    num_steps = config['training_params']['num_steps']
+    num_skills = config['params']['num_skills']
+    episodes = config['training_params']['episodes']
+    log_path = config['training_params']['log_path'] # log path for tensorboard
 
-    episodes = 2000
-    num_envs = 4
-    num_steps = 15
-    num_skills = 6
-
-    log_path = 'runs/diayn_ur5e'
-
-    # Check if output folder exists. If not, create it
-    model_save_folder = 'weights/diayn_ur5e'
+    # Setup for saving weights
+    model_save_folder = config['training_params']['model_save_folder']
     if model_save_folder is not None:
         os.makedirs(model_save_folder, exist_ok=True)
-
-    # look through folder, and set model name to be the next number
+    
     idx = 0
     while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
         idx += 1
     model_save_path = model_save_folder + '/' + str(idx) + '.pt'
+
+    # Print all params in an orderly fashion:
+    print("------------------------------- DIAYN Training Parameters -------------------------------")
+    print("Environment name: ", environment_name)
+    print("Robots: ", robots)
+    print("Number of environments: ", num_envs)
+    print("Number of steps: ", num_steps)
+    print("Number of skills: ", num_skills)
+    print("Number of episodes: ", episodes)
+    print("Log path: ", log_path)
+    print("Model save folder: ", model_save_folder)
     print("Model save path: ", model_save_path)
 
     main(
         environment_name,
+        robots,
         num_envs,
         episodes,
         num_steps,
         num_skills,
-        model_save_path=model_save_path,
         log_path=log_path,
+        model_save_path=model_save_path,
     )

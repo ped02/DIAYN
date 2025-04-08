@@ -15,48 +15,52 @@ from robosuite.wrappers import VisualizationWrapper
 import robosuite as suite
 from robosuite.wrappers import GymWrapper
 
-def make_env(env_name, robots):
-    def _thunk():
-        print("Creating new environment")
+import numpy as np
+import imageio
+import os
 
-        controller_config = load_composite_controller_config(
-            controller=None,
-            robot="Panda",
-        )
+# def make_env(env_name, robots):
+#     def _thunk():
+#         print("Creating new environment")
 
-        config = {
-            "env_name": env_name,
-            "robots": robots,
-            "controller_configs": controller_config,
-        }
+#         controller_config = load_composite_controller_config(
+#             controller=None,
+#             robot="Panda",
+#         )
 
-        robosuite_env = suite.make(
-            **config,
-            has_renderer=True,
-            has_offscreen_renderer=True,
-            render_camera="agentview",
-            ignore_done=True,
-            use_camera_obs=False,
-            reward_shaping=True,
-            control_freq=20,
-            hard_reset=False,
-        )
+#         config = {
+#             "env_name": env_name,
+#             "robots": robots,
+#             "controller_configs": controller_config,
+#         }
 
-        env = GymWrapper(robosuite_env)
+#         robosuite_env = suite.make(
+#             **config,
+#             has_renderer=True,
+#             has_offscreen_renderer=True,
+#             render_camera="agentview",
+#             ignore_done=True,
+#             use_camera_obs=False,
+#             reward_shaping=True,
+#             control_freq=20,
+#             hard_reset=False,
+#         )
 
-        # ✅ Patch the render method for Gymnasium compatibility
-        def _render():
-            return robosuite_env.render()
+#         env = GymWrapper(robosuite_env)
+
+#         # ✅ Patch the render method for Gymnasium compatibility
+#         def _render():
+#             return robosuite_env.render()
         
-        env.render = _render
+#         env.render = _render
 
-        # Ensure metadata exists and supports video recording
-        env.metadata = {"render_modes": ["rgb_array"], "render_fps": 20}
-        env.render_mode = "rgb_array"
+#         # Ensure metadata exists and supports video recording
+#         env.metadata = {"render_modes": ["rgb_array"], "render_fps": 20}
+#         env.render_mode = "rgb_array"
 
-        return env
+#         return env
 
-    return _thunk
+#     return _thunk
 
 def visualize_robosuite(
     environment_name: str,
@@ -96,35 +100,91 @@ def visualize_robosuite(
         )
 
     # env = gym.make(environment_name, render_mode='rgb_array')
-    env = make_env(environment_name, robots)()
+    # env = make_env(environment_name, robots)()
+
+    controller_config = load_composite_controller_config(
+        controller=None,
+        robot=robots,
+    )
+
+    config = {
+        "env_name": environment_name,
+        "robots": robots,
+        "controller_configs": controller_config,
+    }
+
+    env = suite.make(
+            **config,
+            has_renderer=True,
+            has_offscreen_renderer=True,
+            render_camera="agentview",
+            ignore_done=True,
+            use_object_obs=True,
+            use_camera_obs=False,
+            reward_shaping=True,
+            control_freq=20,
+            hard_reset=False,
+        )
+    
+    video_height = 512
+    video_width = 512
 
     def process_pure_state(observation_raw):
         return pad_to_dim_2(torch.Tensor(observation_raw).to(device))
+    
+    def convert_obs_dict_to_nparray(obs_dict):
+        # Convert the observation dictionary to a numpy array
+        observations_raw = np.concatenate([obs_dict['robot0_proprio-state'], obs_dict['object-state']])
+        return observations_raw
 
     process_observation = process_pure_state
     if skill_index is not None:
         process_observation = augment_state_skill
 
-    env_recorder = gym.wrappers.RecordVideo(
-        env,
-        video_folder=output_folder,
-        name_prefix=output_name_prefix,
-        episode_trigger=lambda x: True,
-    )
+    # env_recorder = gym.wrappers.RecordVideo(
+    #     env,
+    #     video_folder=output_folder,
+    #     name_prefix=output_name_prefix,
+    #     episode_trigger=lambda x: True,
+    # )
 
-    observations_raw, _ = env_recorder.reset()
+
+
+    obs_dict = env.reset()
+    observations_raw = convert_obs_dict_to_nparray(obs_dict)
     observation = process_observation(observations_raw)
+
+    frames = []
 
     for t in range(max_episode_steps):
         with torch.no_grad():
             actions = agent.get_action(observation).squeeze(0)
-        observations_raw, rewards, done, _, _ = env_recorder.step(
+        obs_dict, rewards, done, _ = env.step(
             actions.cpu().numpy()
         )
 
+        observations_raw = convert_obs_dict_to_nparray(obs_dict)
+
         observation = process_observation(observations_raw)
+
+        # Render frame
+        frame = env.sim.render(
+            camera_name="agentview",
+            height=video_height,
+            width=video_width,
+            depth=False,
+        )
+
+        frame = np.flipud(frame).astype(np.uint8)
+        frames.append(frame)
 
         if done:
             break
+    
+    # Close video window
+    env.close()
 
-    env_recorder.close()
+    # Save video
+    video_path = os.path.join(output_folder, f"{output_name_prefix}.mp4")
+    print(f"Saving video to {video_path}")
+    imageio.mimsave(video_path, frames, fps=20)

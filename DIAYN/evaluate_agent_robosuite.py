@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import torch
+import yaml
 
 import gymnasium as gym
 
@@ -17,6 +18,56 @@ from robosuite.wrappers import VisualizationWrapper
 import robosuite as suite
 from robosuite.wrappers import GymWrapper
 
+class CustomGymWrapper(gym.ObservationWrapper):
+    def __init__(self, robosuite_env, config):
+        # Wrap robosuite with GymWrapper inside
+        gym_env = GymWrapper(robosuite_env)
+        super().__init__(gym_env)
+
+        # Figure out which state variables we care about
+        self.use_eef_state = config['observations']['use_eef_state']
+
+        # Extract dimensions of observation space
+        obs_dict = robosuite_env._get_observations()
+
+        if self.use_eef_state:
+            observation_raw = np.concatenate([
+                obs_dict['robot0_eef_pos'],
+                obs_dict['robot0_eef_quat']
+            ])
+        else:
+            observation_raw = np.concatenate([
+                obs_dict['robot0_proprio-state'],
+                obs_dict['object-state']
+            ])
+
+        # Add new dimensions to observation spaceZ
+        new_dim = observation_raw.shape[0]
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(new_dim,),
+            dtype=np.float32
+        )
+    
+    def observation(self, obs):
+        # obs is the flat vector from GymWrapper
+        # Add x-position (or whatever custom feature you want)
+        obs_dict = 	self.env.unwrapped._get_observations()
+
+        if (self.use_eef_state):
+            # print("using end effector state")
+            # print("Using end effector state")
+            # print("eef pos: " + str(obs_dict['robot0_eef_pos']))
+            # print("eef quat: " + str(obs_dict['robot0_eef_quat']))
+            observation_raw = np.concatenate([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']])
+        else:
+            observation_raw = np.concatenate([obs_dict['robot0_proprio-state'], obs_dict['object-state']])
+
+        # print("obs dict from custom gym wrapper: " + str(obs_dict))
+        # print("observation_raw: " + str(observation_raw))
+        return observation_raw
+
 def make_env(env_name, robots):
     def _thunk():
         print("Creating new environment")
@@ -26,14 +77,14 @@ def make_env(env_name, robots):
                 robot="Panda",
         )
 
-        config = {
+        robosuite_config = {
             "env_name": env_name,
             "robots": robots,
             "controller_configs": controller_config,
         }
 
         robosuite_env = suite.make(
-            **config,
+            **robosuite_config,
             has_renderer=False,
             has_offscreen_renderer=False,
             render_camera="agentview",
@@ -43,7 +94,11 @@ def make_env(env_name, robots):
             control_freq=20,
             hard_reset=False,
         )
-        env = GymWrapper(robosuite_env)
+
+        with open("./config/ur5e_config.yaml", "r") as file:
+            config = yaml.safe_load(file)
+
+        env = CustomGymWrapper(robosuite_env, config)
 
         # Ensure metadata exists and is a dict before modifying
         if env.metadata is None:

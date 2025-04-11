@@ -1,11 +1,8 @@
 import os
 from typing import Optional, Union
 import yaml
-
 import numpy as np
-
 import torch
-
 import gymnasium as gym
 
 from DIAYN import DIAYNAgent, evaluate_agent, evaluate_agent_robosuite, visualize, visualize_robosuite
@@ -26,6 +23,56 @@ from DIAYN.utils import (
     image_numpy_to_torch,
 )
 
+class CustomGymWrapper(gym.ObservationWrapper):
+    def __init__(self, robosuite_env, config):
+        # Wrap robosuite with GymWrapper inside
+        gym_env = GymWrapper(robosuite_env)
+        super().__init__(gym_env)
+
+        # Figure out which state variables we care about
+        self.use_eef_state = config['observations']['use_eef_state']
+
+        # Extract dimensions of observation space
+        obs_dict = robosuite_env._get_observations()
+
+        if self.use_eef_state:
+            observation_raw = np.concatenate([
+                obs_dict['robot0_eef_pos'],
+                obs_dict['robot0_eef_quat']
+            ])
+        else:
+            observation_raw = np.concatenate([
+                obs_dict['robot0_proprio-state'],
+                obs_dict['object-state']
+            ])
+
+        # Add new dimensions to observation spaceZ
+        new_dim = observation_raw.shape[0]
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(new_dim,),
+            dtype=np.float32
+        )
+    
+    def observation(self, obs):
+        # obs is the flat vector from GymWrapper
+        # Add x-position (or whatever custom feature you want)
+        obs_dict = 	self.env.unwrapped._get_observations()
+
+        if (self.use_eef_state):
+            # print("using end effector state")
+            # print("Using end effector state")
+            # print("eef pos: " + str(obs_dict['robot0_eef_pos']))
+            # print("eef quat: " + str(obs_dict['robot0_eef_quat']))
+            observation_raw = np.concatenate([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']])
+        else:
+            observation_raw = np.concatenate([obs_dict['robot0_proprio-state'], obs_dict['object-state']])
+
+        # print("obs dict from custom gym wrapper: " + str(obs_dict))
+        # print("observation_raw: " + str(observation_raw))
+        return observation_raw
+
 def make_env():
     def _thunk():
         print("Creating new environment")
@@ -35,14 +82,14 @@ def make_env():
                 robot="Panda",
         )
 
-        config = {
+        robosuite_config = {
             "env_name": "Lift",
             "robots": "Panda",
             "controller_configs": controller_config,
         }
 
         robosuite_env = suite.make(
-            **config,
+            **robosuite_config,
             has_renderer=False,
             has_offscreen_renderer=False,
             render_camera="agentview",
@@ -52,7 +99,11 @@ def make_env():
             control_freq=20,
             hard_reset=False,
         )
-        env = GymWrapper(robosuite_env)
+
+        with open("./config/ur5e_config.yaml", "r") as file:
+            config = yaml.safe_load(file)
+
+        env = CustomGymWrapper(robosuite_env, config)
 
         # Ensure metadata exists and is a dict before modifying
         if env.metadata is None:
@@ -81,8 +132,9 @@ def main(
 
     # Setup env variables
 
+    # TODO: Just get dims directly instead of dealing with this each time
     envs = SyncVectorEnv([make_env() for _ in range(num_envs)])
-    print(f"Observation dimensions: {envs.observation_space.shape[1]}")
+    
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
 
@@ -256,13 +308,13 @@ def checkpoint_check(filepath: str):
 if __name__ == '__main__':
 
     # Read config file for all settings
-    with open("config.yaml", "r") as file:
+    with open("./config/ur5e_config.yaml", "r") as file:
         config = yaml.safe_load(file)
     
     environment_name = config['params']['environment_name']
     robots = config['params']['robots']
     num_envs = config['params']['num_envs']
-    num_steps = config['params']['num_steps']
+    num_steps = config['evaluation_params']['num_steps']
     num_skills = config['params']['num_skills']
 
     # Folder paths

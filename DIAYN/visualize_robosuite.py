@@ -134,7 +134,11 @@ def visualize_robosuite(
     
     def convert_obs_dict_to_nparray(obs_dict):
         # Convert the observation dictionary to a numpy array
-        observations_raw = np.concatenate([obs_dict['robot0_proprio-state'], obs_dict['object-state']])
+        # TODO: Make this variable based on yaml file
+        observations_raw = np.concatenate([
+                obs_dict['robot0_eef_pos'],
+                obs_dict['robot0_eef_quat']
+            ])
         return observations_raw
 
     process_observation = process_pure_state

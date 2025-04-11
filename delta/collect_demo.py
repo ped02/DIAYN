@@ -34,9 +34,6 @@ def saveObject(tau, fname):
     with open(fname, 'wb') as f:
         pickle.dump(tau, f)
 
-# Modify observation keys for the observations returned by specific environment (env.observation_spec())
-obs_keys = ['robot0_eef_pos', 'robot0_eef_quat', 'robot0_gripper_qpos', 'cube_pos', 'cube_quat', 'gripper_to_cube_pos']
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--environment", type=str, default="Lift")
@@ -240,14 +237,13 @@ if __name__ == "__main__":
                 env.step(env_action)
                 env.render()
 
+                """
+                # NOTE: This currently only stores state and action if the current action is different from last. To change to storing at every timestep, comment out if condition and uncomment "if True:"
+                """
                 # store state and action if action taken
                 if not np.array_equal(env_action, no_action):
                 # if True:
-                    observation_dict = env.observation_spec()
-                    observation = []
-                    for key in obs_keys:
-                        observation.extend(observation_dict[key])
-                    observation = np.array(observation).astype(np.float32)
+                    observation = np.array(env.sim.get_state().flatten()).astype(np.float32)
                     print(f'env action: {env_action}')
                     tau.append((observation, env_action))
 

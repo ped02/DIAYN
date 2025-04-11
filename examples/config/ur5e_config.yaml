@@ -5,17 +5,19 @@ params:
   num_envs: 4
   num_skills: 50
 
+observations:
+  use_eef_state: True
+
 training_params:
   episodes: 2000
   num_steps: 1000
   log_path: 'runs/diayn_ur5e'
   model_save_folder: 'weights/diayn_ur5e'
 
-
 evaluation_params:
-  num_steps: 1000
+  num_steps: 200
 
 file_params:
-  model_load_path: "weights/diayn_ur5e/0.pt"
+  model_load_path: "weights/diayn_ur5e/2.pt"
   video_output_folder: "videos/diayn_ur5e"
   video_prefix_path: 'rl_video'

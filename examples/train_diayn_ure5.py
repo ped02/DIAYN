@@ -15,50 +15,43 @@ from torch.utils.tensorboard import SummaryWriter
 import gymnasium as gym
 
 from DIAYN import ReplayBuffer, DIAYNAgent, rollout_skill
-import DIAYN.envs
 
 # Robosuite stuff:
 import argparse
-import time
-
-import numpy as np
 
 import robosuite as suite
 from robosuite import load_composite_controller_config
-from robosuite.controllers.composite.composite_controller import WholeBody
-from robosuite.wrappers import VisualizationWrapper
 
 from gymnasium.vector import SyncVectorEnv
-import robosuite as suite
 from robosuite.wrappers import GymWrapper
 
 from DIAYN.utils import (
     replay_post_processor,
     pad_to_dim_2,
     plot_to_image,
-    image_numpy_to_torch,
 )
+
 
 def make_env(env_name, robots):
     def _thunk():
-        print("Creating new environment")
+        print('Creating new environment')
 
         controller_config = load_composite_controller_config(
-                controller=None,
-                robot="Panda",
+            controller=None,
+            robot='Panda',
         )
 
         config = {
-            "env_name": env_name,
-            "robots": robots,
-            "controller_configs": controller_config,
+            'env_name': env_name,
+            'robots': robots,
+            'controller_configs': controller_config,
         }
 
         robosuite_env = suite.make(
             **config,
             has_renderer=False,
             has_offscreen_renderer=False,
-            render_camera="agentview",
+            render_camera='agentview',
             ignore_done=True,
             use_camera_obs=False,
             reward_shaping=True,
@@ -66,15 +59,17 @@ def make_env(env_name, robots):
             hard_reset=False,
         )
         env = GymWrapper(robosuite_env)
-        
+
         # Ensure metadata exists and is a dict before modifying
         if env.metadata is None:
             env.metadata = {}
-        env.metadata["render_modes"] = []
-        env.metadata["autoreset"] = False
+        env.metadata['render_modes'] = []
+        env.metadata['autoreset'] = False
 
         return env
+
     return _thunk
+
 
 def plot_skill_trajectories(
     environment_name: str,
@@ -251,37 +246,67 @@ def main(
     plot_trajectories: int = 5,
     plot_train_steps_period: Optional[int] = 1500,
 ):
-    
     device = torch.device('cuda')
     print(f'Using device: {device}')
 
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
 
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="Lift")
-    parser.add_argument("--robots", nargs="+", type=str, default="Panda", help="Which robot(s) to use in the env")
+    parser.add_argument('--environment', type=str, default='Lift')
     parser.add_argument(
-        "--config", type=str, default="default", help="Specified environment configuration if necessary"
+        '--robots',
+        nargs='+',
+        type=str,
+        default='Panda',
+        help='Which robot(s) to use in the env',
     )
-    parser.add_argument("--arm", type=str, default="right", help="Which arm to control (eg bimanual) 'right' or 'left'")
-    parser.add_argument("--switch-on-grasp", action="store_true", help="Switch gripper control on gripper action")
-    parser.add_argument("--toggle-camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
     parser.add_argument(
-        "--controller",
+        '--config',
+        type=str,
+        default='default',
+        help='Specified environment configuration if necessary',
+    )
+    parser.add_argument(
+        '--arm',
+        type=str,
+        default='right',
+        help="Which arm to control (eg bimanual) 'right' or 'left'",
+    )
+    parser.add_argument(
+        '--switch-on-grasp',
+        action='store_true',
+        help='Switch gripper control on gripper action',
+    )
+    parser.add_argument(
+        '--toggle-camera-on-grasp',
+        action='store_true',
+        help='Switch camera angle on gripper action',
+    )
+    parser.add_argument(
+        '--controller',
         type=str,
         default=None,
         help="Choice of controller. Can be generic (eg. 'BASIC' or 'WHOLE_BODY_MINK_IK') or json file (see robosuite/controllers/config for examples) or None to get the robot's default controller if it exists",
     )
-    parser.add_argument("--device", type=str, default="keyboard")
-    parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
-    parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
+    parser.add_argument('--device', type=str, default='keyboard')
     parser.add_argument(
-        "--max_fr",
+        '--pos-sensitivity',
+        type=float,
+        default=1.0,
+        help='How much to scale position user inputs',
+    )
+    parser.add_argument(
+        '--rot-sensitivity',
+        type=float,
+        default=1.0,
+        help='How much to scale rotation user inputs',
+    )
+    parser.add_argument(
+        '--max_fr',
         default=20,
         type=int,
-        help="Sleep when simluation runs faster than specified frame rate; 20 fps is real time.",
+        help='Sleep when simluation runs faster than specified frame rate; 20 fps is real time.',
     )
     args = parser.parse_args()
 
@@ -293,18 +318,20 @@ def main(
 
     # Create argument configuration
     config = {
-        "env_name": args.environment,
-        "robots": args.robots,
-        "controller_configs": controller_config,
+        'env_name': args.environment,
+        'robots': args.robots,
+        'controller_configs': controller_config,
     }
 
     # Check if we're using a multi-armed environment and use env_configuration argument if so
-    if "TwoArm" in args.environment:
-        config["env_configuration"] = args.config
+    if 'TwoArm' in args.environment:
+        config['env_configuration'] = args.config
     else:
         args.config = None
-    
-    envs = SyncVectorEnv([make_env(environment_name, robots) for _ in range(num_envs)])
+
+    envs = SyncVectorEnv(
+        [make_env(environment_name, robots) for _ in range(num_envs)]
+    )
 
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
@@ -326,6 +353,8 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
             torch.nn.Linear(256, 1),
         )
 
@@ -337,6 +366,8 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
             torch.nn.Linear(256, 2 * action_dim),
         )
         return policy_network
@@ -345,6 +376,10 @@ def main(
         # Output logits
         discriminiator_network = torch.nn.Sequential(
             torch.nn.Linear(observation_dim, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
@@ -425,8 +460,9 @@ def main(
     if log_writer is not None:
         plot_skill_trajectories_phase()
 
-        
-    print("------------------------------- Beginning training -------------------------------")
+    print(
+        '------------------------------- Beginning training -------------------------------'
+    )
     start_time = time.time()
     for episode in range(episodes):
         if (episode + 1) % 50 == 0:
@@ -435,7 +471,7 @@ def main(
             )
 
             if model_save_path is not None:
-                print("Saving model states at episode " + str(episode + 1))
+                print('Saving model states at episode ' + str(episode + 1))
                 diayn_agent.save_checkpoint(model_save_path)
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
@@ -461,46 +497,48 @@ def main(
 
     # Save model
     if model_save_path is not None:
-        print("Saving final model states")
+        print('Saving final model states')
         diayn_agent.save_checkpoint(model_save_path)
 
 
 if __name__ == '__main__':
     # Read config file for all settings
     # Print current directory
-    print("Current working directory:", os.getcwd())
-    with open("./config/ur5e_config.yaml", "r") as file:
+    print('Current working directory:', os.getcwd())
+    with open('./config/ur5e_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
-    
+
     environment_name = config['params']['environment_name']
     robots = config['params']['robots']
     num_envs = config['params']['num_envs']
     num_steps = config['training_params']['num_steps']
     num_skills = config['params']['num_skills']
     episodes = config['training_params']['episodes']
-    log_path = config['training_params']['log_path'] # log path for tensorboard
+    log_path = config['training_params']['log_path']  # log path for tensorboard
 
     # Setup for saving weights
     model_save_folder = config['training_params']['model_save_folder']
     if model_save_folder is not None:
         os.makedirs(model_save_folder, exist_ok=True)
-    
+
     idx = 0
     while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
         idx += 1
     model_save_path = model_save_folder + '/' + str(idx) + '.pt'
 
     # Print all params in an orderly fashion:
-    print("------------------------------- DIAYN Training Parameters -------------------------------")
-    print("Environment name: ", environment_name)
-    print("Robots: ", robots)
-    print("Number of environments: ", num_envs)
-    print("Number of steps: ", num_steps)
-    print("Number of skills: ", num_skills)
-    print("Number of episodes: ", episodes)
-    print("Log path: ", log_path)
-    print("Model save folder: ", model_save_folder)
-    print("Model save path: ", model_save_path)
+    print(
+        '------------------------------- DIAYN Training Parameters -------------------------------'
+    )
+    print('Environment name: ', environment_name)
+    print('Robots: ', robots)
+    print('Number of environments: ', num_envs)
+    print('Number of steps: ', num_steps)
+    print('Number of skills: ', num_skills)
+    print('Number of episodes: ', episodes)
+    print('Log path: ', log_path)
+    print('Model save folder: ', model_save_folder)
+    print('Model save path: ', model_save_path)
 
     main(
         environment_name,

@@ -1,6 +1,7 @@
 import time
 from typing import Optional
 import yaml
+import datetime
 
 import numpy as np
 
@@ -458,8 +459,8 @@ def main(
 
     def training_function(step):
         nonlocal total_steps
-        if (
-            len(replay_buffer.buffer) > num_steps * num_skills * num_envs * 10
+        if len(replay_buffer.buffer) > min(
+            num_steps * num_skills * num_envs * 10, 10000
         ):  # at least 10 demonstrations of each randomly before start training
             diayn_agent.update(
                 replay_buffer,
@@ -533,7 +534,7 @@ if __name__ == '__main__':
     num_steps = config['training_params']['num_steps']
     num_skills = config['params']['num_skills']
     episodes = config['training_params']['episodes']
-    log_path = config['training_params']['log_path'] # log path for tensorboard
+    log_parent_folder = config['training_params']['log_parent_folder'] # log path for tensorboard
 
     # Setup for saving weights
     model_save_folder = config['training_params']['model_save_folder']
@@ -544,6 +545,9 @@ if __name__ == '__main__':
     while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
         idx += 1
     model_save_path = model_save_folder + '/' + str(idx) + '.pt'
+
+    run_name = "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_path = os.path.join(log_parent_folder, run_name)
 
     # Print all params in an orderly fashion:
     print("------------------------------- DIAYN Training Parameters -------------------------------")

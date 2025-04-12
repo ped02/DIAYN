@@ -2,8 +2,8 @@
 params:
   environment_name: "Lift"
   robots: "Panda"
-  num_envs: 4
-  num_skills: 50
+  num_envs: 16
+  num_skills: 10
 
 observations:
   use_eef_state: True
@@ -11,13 +11,13 @@ observations:
 training_params:
   episodes: 2000
   num_steps: 1000
-  log_path: 'runs/diayn_ur5e'
+  log_parent_folder: 'runs/diayn_ur5e'
   model_save_folder: 'weights/diayn_ur5e'
 
 evaluation_params:
   num_steps: 200
 
 file_params:
-  model_load_path: "weights/diayn_ur5e/2.pt"
+  model_load_path: "weights/diayn_ur5e/4.pt"
   video_output_folder: "videos/diayn_ur5e"
   video_prefix_path: 'rl_video'

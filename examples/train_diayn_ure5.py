@@ -203,7 +203,7 @@ def main(
     steps_per_episode: int,
     num_skills: int,
     log_path: Optional[str] = None,
-    model_save_path: Optional[str] = None,
+    model_save_folder: Optional[str] = None,
     plot_dpi: float = 150.0,
     plot_trajectories: int = 5,
     plot_train_steps_period: Optional[int] = 1500,
@@ -351,13 +351,16 @@ def main(
     )
     start_time = time.time()
     for episode in range(episodes):
-        if (episode + 1) % 10 == 0:
+        if (episode) % 10 == 0 and episode > 0:
             print(
-                f'Starting {episode + 1} / {episodes} @ {time.time() - start_time:.3f} sec'
+                f'Starting {episode} / {episodes} @ {time.time() - start_time:.3f} sec'
             )
 
-            if model_save_path is not None:
-                print('Saving model states at episode ' + str(episode + 1))
+            if model_save_folder is not None:
+                print('Saving model states at episode ' + str(episode))
+                model_save_path = os.path.join(
+                    model_save_folder, ('episode_' + str(episode) + '.pt')
+                )
                 diayn_agent.save_checkpoint(model_save_path)
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
@@ -413,13 +416,10 @@ if __name__ == '__main__':
     if model_save_folder is not None:
         os.makedirs(model_save_folder, exist_ok=True)
 
-    idx = 0
-    while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
-        idx += 1
-    model_save_path = model_save_folder + '/' + str(idx) + '.pt'
 
     run_name = 'run_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_path = os.path.join(log_parent_folder, run_name)
+    model_save_folder = os.path.join(model_save_folder, run_name)
 
     # Print all params in an orderly fashion:
     print(
@@ -445,6 +445,6 @@ if __name__ == '__main__':
         num_steps,
         num_skills,
         log_path=log_path,
-        model_save_path=model_save_path,
+        model_save_folder=model_save_folder,
         config=config,
     )

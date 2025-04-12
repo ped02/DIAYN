@@ -109,7 +109,7 @@ def make_env(env_name, robots):
             hard_reset=False,
         )
 
-        with open('./config/ur5e_config.yaml', 'r') as file:
+        with open('./examples/config/ur5e_config.yaml', 'r') as file:
             config = yaml.safe_load(file)
 
         env = CustomGymWrapper(robosuite_env, config)
@@ -488,7 +488,7 @@ def main(
     )
     start_time = time.time()
     for episode in range(episodes):
-        if (episode + 1) % 50 == 0:
+        if (episode + 1) % 10 == 0:
             print(
                 f'Starting {episode + 1} / {episodes} @ {time.time() - start_time:.3f} sec'
             )
@@ -528,7 +528,7 @@ if __name__ == '__main__':
     # Read config file for all settings
     # Print current directory
     print('Current working directory:', os.getcwd())
-    with open('./config/ur5e_config.yaml', 'r') as file:
+    with open('./examples/config/ur5e_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     environment_name = config['params']['environment_name']
@@ -537,7 +537,9 @@ if __name__ == '__main__':
     num_steps = config['training_params']['num_steps']
     num_skills = config['params']['num_skills']
     episodes = config['training_params']['episodes']
-    log_parent_folder = config['training_params']['log_parent_folder'] # log path for tensorboard
+    log_parent_folder = config['training_params'][
+        'log_parent_folder'
+    ]  # log path for tensorboard
 
     # Setup for saving weights
     model_save_folder = config['training_params']['model_save_folder']
@@ -549,7 +551,7 @@ if __name__ == '__main__':
         idx += 1
     model_save_path = model_save_folder + '/' + str(idx) + '.pt'
 
-    run_name = "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_name = 'run_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_path = os.path.join(log_parent_folder, run_name)
 
     # Print all params in an orderly fashion:

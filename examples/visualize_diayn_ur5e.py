@@ -5,23 +5,14 @@ import numpy as np
 import torch
 import gymnasium as gym
 
-from DIAYN import DIAYNAgent, evaluate_agent, evaluate_agent_robosuite, visualize, visualize_robosuite
+from DIAYN import DIAYNAgent, evaluate_agent_robosuite, visualize_robosuite
 
 import robosuite as suite
 from robosuite import load_composite_controller_config
-from robosuite.controllers.composite.composite_controller import WholeBody
-from robosuite.wrappers import VisualizationWrapper
 
 from gymnasium.vector import SyncVectorEnv
-import robosuite as suite
 from robosuite.wrappers import GymWrapper
 
-from DIAYN.utils import (
-    replay_post_processor,
-    pad_to_dim_2,
-    plot_to_image,
-    image_numpy_to_torch,
-)
 
 class CustomGymWrapper(gym.ObservationWrapper):
     def __init__(self, robosuite_env, config):
@@ -36,56 +27,56 @@ class CustomGymWrapper(gym.ObservationWrapper):
         obs_dict = robosuite_env._get_observations()
 
         if self.use_eef_state:
-            observation_raw = np.concatenate([
-                obs_dict['robot0_eef_pos'],
-                obs_dict['robot0_eef_quat']
-            ])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']]
+            )
         else:
-            observation_raw = np.concatenate([
-                obs_dict['robot0_proprio-state'],
-                obs_dict['object-state']
-            ])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_proprio-state'], obs_dict['object-state']]
+            )
 
         # Add new dimensions to observation spaceZ
         new_dim = observation_raw.shape[0]
         self.observation_space = gym.spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(new_dim,),
-            dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(new_dim,), dtype=np.float32
         )
-    
+
     def observation(self, obs):
         # obs is the flat vector from GymWrapper
         # Add x-position (or whatever custom feature you want)
-        obs_dict = 	self.env.unwrapped._get_observations()
+        obs_dict = self.env.unwrapped._get_observations()
 
-        if (self.use_eef_state):
+        if self.use_eef_state:
             # print("using end effector state")
             # print("Using end effector state")
             # print("eef pos: " + str(obs_dict['robot0_eef_pos']))
             # print("eef quat: " + str(obs_dict['robot0_eef_quat']))
-            observation_raw = np.concatenate([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']]
+            )
         else:
-            observation_raw = np.concatenate([obs_dict['robot0_proprio-state'], obs_dict['object-state']])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_proprio-state'], obs_dict['object-state']]
+            )
 
         # print("obs dict from custom gym wrapper: " + str(obs_dict))
         # print("observation_raw: " + str(observation_raw))
         return observation_raw
 
+
 def make_env():
     def _thunk():
-        print("Creating new environment")
+        print('Creating new environment')
 
         controller_config = load_composite_controller_config(
-                controller=None,
-                robot="Panda",
+            controller=None,
+            robot='Panda',
         )
 
         robosuite_config = {
-            "env_name": "Lift",
-            "robots": "Panda",
-            "controller_configs": controller_config,
+            'env_name': 'Lift',
+            'robots': 'Panda',
+            'controller_configs': controller_config,
         }
 
         robosuite_env = suite.make(
@@ -100,7 +91,7 @@ def make_env():
             hard_reset=False,
         )
 
-        with open("./config/ur5e_config.yaml", "r") as file:
+        with open('./examples/config/ur5e_config.yaml', 'r') as file:
             config = yaml.safe_load(file)
 
         env = CustomGymWrapper(robosuite_env, config)
@@ -108,11 +99,13 @@ def make_env():
         # Ensure metadata exists and is a dict before modifying
         if env.metadata is None:
             env.metadata = {}
-        env.metadata["render_modes"] = []
-        env.metadata["autoreset"] = False
+        env.metadata['render_modes'] = []
+        env.metadata['autoreset'] = False
 
         return env
+
     return _thunk
+
 
 def main(
     environment_name: str,
@@ -135,7 +128,7 @@ def main(
 
     # TODO: Just get dims directly instead of dealing with this each time
     envs = SyncVectorEnv([make_env() for _ in range(num_envs)])
-    
+
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
 
@@ -297,22 +290,23 @@ def main(
             f'[Skill {visualize_skill}] Mean Step Reward: {np.nanmean(result_dict["total_return"]/result_dict["episode_length"])} Mean Total Return: {np.mean(result_dict["total_return"])}'
         )
 
+
 def checkpoint_check(filepath: str):
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Checkpoint file '{filepath}' not found")
 
     checkpoint = torch.load(filepath, map_location='cuda')
-    print("Checkpoint contents:", checkpoint)  # Add this line to debug
+    print('Checkpoint contents:', checkpoint)  # Add this line to debug
     # self.set_state_dict(checkpoint)
 
     # logger.info(f'Checkpoint loaded from {filepath}')
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     # Read config file for all settings
-    with open("./config/ur5e_config.yaml", "r") as file:
+    with open('./examples/config/ur5e_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
-    
+
     environment_name = config['params']['environment_name']
     robots = config['params']['robots']
     num_envs = config['params']['num_envs']

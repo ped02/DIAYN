@@ -1,6 +1,7 @@
 from .replay_buffer import ReplayBuffer
 from .agent_base import AgentBase
 from .sac import SAC
+from .custom_gym_wrapper import CustomGymWrapper, make_env
 from .visualize import visualize
 from .visualize_robosuite import visualize_robosuite
 from .rl_rollout import rollout, rollout_skill
@@ -14,6 +15,8 @@ __all__ = [
     'ReplayBuffer',
     'AgentBase',
     'SAC',
+    'CustomGymWrapper',
+    'make_env',
     'visualize',
     'visualize_robosuite',
     'rollout',

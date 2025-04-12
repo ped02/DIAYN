@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import gymnasium as gym
 
-from DIAYN import ReplayBuffer, DIAYNAgent, rollout_skill
+from DIAYN import ReplayBuffer, DIAYNAgent, CustomGymWrapper, make_env, rollout_skill
 
 # Robosuite stuff:
 
@@ -25,105 +25,13 @@ from robosuite import load_composite_controller_config
 from gymnasium.vector import SyncVectorEnv
 from robosuite.wrappers import GymWrapper
 
+from pathlib import Path
+
 from DIAYN.utils import (
     replay_post_processor,
     pad_to_dim_2,
     plot_to_image,
 )
-
-
-# TODO: Put this in a different library
-class CustomGymWrapper(gym.ObservationWrapper):
-    def __init__(self, robosuite_env, config):
-        # Wrap robosuite with GymWrapper inside
-        gym_env = GymWrapper(robosuite_env)
-        super().__init__(gym_env)
-
-        # Figure out which state variables we care about
-        self.use_eef_state = config['observations']['use_eef_state']
-
-        # Extract dimensions of observation space
-        obs_dict = robosuite_env._get_observations()
-
-        if self.use_eef_state:
-            observation_raw = np.concatenate(
-                [obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']]
-            )
-        else:
-            observation_raw = np.concatenate(
-                [obs_dict['robot0_proprio-state'], obs_dict['object-state']]
-            )
-
-        # Add new dimensions to observation spaceZ
-        new_dim = observation_raw.shape[0]
-        self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(new_dim,), dtype=np.float32
-        )
-
-    def observation(self, obs):
-        # obs is the flat vector from GymWrapper
-        # Add x-position (or whatever custom feature you want)
-        obs_dict = self.env.unwrapped._get_observations()
-
-        if self.use_eef_state:
-            # print("Using end effector state")
-            # print("eef pos: " + str(obs_dict['robot0_eef_pos']))
-            # print("eef quat: " + str(obs_dict['robot0_eef_quat']))
-            observation_raw = np.concatenate(
-                [obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']]
-            )
-        else:
-            observation_raw = np.concatenate(
-                [obs_dict['robot0_proprio-state'], obs_dict['object-state']]
-            )
-
-        # print("obs dict from custom gym wrapper: " + str(obs_dict))
-        # print("observation_raw: " + str(observation_raw))
-        return observation_raw
-
-
-def make_env(env_name, robots):
-    def _thunk():
-        print('Creating new environment')
-
-        controller_config = load_composite_controller_config(
-            controller=None,
-            robot='Panda',
-        )
-
-        robosuite_config = {
-            'env_name': env_name,
-            'robots': robots,
-            'controller_configs': controller_config,
-        }
-
-        robosuite_env = suite.make(
-            **robosuite_config,
-            has_renderer=False,
-            has_offscreen_renderer=False,
-            render_camera='agentview',
-            ignore_done=True,
-            use_camera_obs=False,
-            reward_shaping=True,
-            control_freq=20,
-            hard_reset=False,
-        )
-
-        with open('./examples/config/ur5e_config.yaml', 'r') as file:
-            config = yaml.safe_load(file)
-
-        env = CustomGymWrapper(robosuite_env, config)
-
-        # Ensure metadata exists and is a dict before modifying
-        if env.metadata is None:
-            env.metadata = {}
-        env.metadata['render_modes'] = []
-        env.metadata['autoreset'] = False
-
-        return env
-
-    return _thunk
-
 
 def plot_skill_trajectories(
     environment_name: str,
@@ -307,53 +215,8 @@ def main(
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--environment", type=str, default="Lift")
-    # parser.add_argument("--robots", nargs="+", type=str, default="Panda", help="Which robot(s) to use in the env")
-    # parser.add_argument(
-    #     "--config", type=str, default="default", help="Specified environment configuration if necessary"
-    # )
-    # parser.add_argument("--arm", type=str, default="right", help="Which arm to control (eg bimanual) 'right' or 'left'")
-    # parser.add_argument("--switch-on-grasp", action="store_true", help="Switch gripper control on gripper action")
-    # parser.add_argument("--toggle-camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
-    # parser.add_argument(
-    #     "--controller",
-    #     type=str,
-    #     default=None,
-    #     help="Choice of controller. Can be generic (eg. 'BASIC' or 'WHOLE_BODY_MINK_IK') or json file (see robosuite/controllers/config for examples) or None to get the robot's default controller if it exists",
-    # )
-    # parser.add_argument("--device", type=str, default="keyboard")
-    # parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
-    # parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
-    # parser.add_argument(
-    #     "--max_fr",
-    #     default=20,
-    #     type=int,
-    #     help="Sleep when simluation runs faster than specified frame rate; 20 fps is real time.",
-    # )
-    # args = parser.parse_args()
-
-    # # Get controller config
-    # controller_config = load_composite_controller_config(
-    #     controller=args.controller,
-    #     robot=args.robots[0],
-    # )
-
-    # # Create argument configuration
-    # robosuite_config = {
-    #     "env_name": args.environment,
-    #     "robots": args.robots,
-    #     "controller_configs": controller_config,
-    # }
-
-    # # Check if we're using a multi-armed environment and use env_configuration argument if so
-    # if "TwoArm" in args.environment:
-    #     robosuite_config["env_configuration"] = args.config
-    # else:
-    #     args.config = None
-
     envs = SyncVectorEnv(
-        [make_env(environment_name, robots) for _ in range(num_envs)]
+        [make_env(config) for _ in range(num_envs)]
     )
 
     observation_dims = envs.observation_space.shape[1]
@@ -527,8 +390,12 @@ def main(
 if __name__ == '__main__':
     # Read config file for all settings
     # Print current directory
-    print('Current working directory:', os.getcwd())
-    with open('./examples/config/ur5e_config.yaml', 'r') as file:
+
+    # Get location of this file
+    current_dir = str(Path(__file__).parent.resolve())
+    print('Current directory:', current_dir)
+    exit()
+    with open(current_dir + '/config/ur5e_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     environment_name = config['params']['environment_name']

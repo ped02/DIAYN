@@ -7,6 +7,7 @@ params:
 
 observations:
   use_eef_state: True
+  use_joint_vels: False
 
 training_params:
   episodes: 2000

@@ -376,8 +376,8 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
-            torch.nn.ReLU(),
+            # torch.nn.Linear(256, 256),
+            # torch.nn.ReLU(),
             torch.nn.Linear(256, 1),
         )
 
@@ -389,8 +389,8 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
-            torch.nn.ReLU(),
+            # torch.nn.Linear(256, 256),
+            # torch.nn.ReLU(),
             torch.nn.Linear(256, 2 * action_dim),
         )
         return policy_network
@@ -402,10 +402,10 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
-            torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
-            torch.nn.ReLU(),
+            # torch.nn.Linear(256, 256),
+            # torch.nn.ReLU(),
+            # torch.nn.Linear(256, 256),
+            # torch.nn.ReLU(),
             torch.nn.Linear(256, skill_dim),
         )
 

@@ -72,6 +72,7 @@ def visualize_robosuite(
     num_skills: Optional[int] = None,
     output_folder: str = './',
     output_name_prefix: str = 'rl-video',
+    config: Optional[dict] = None,
 ):
     """Visualize Agent Interaction. Run until episode ends or max_episode_step is reached.
 
@@ -107,17 +108,19 @@ def visualize_robosuite(
         robot=robots,
     )
 
-    config = {
+    robosuite_config = {
         "env_name": environment_name,
         "robots": robots,
         "controller_configs": controller_config,
     }
 
+    camera_view = config['evaluation_params']['camera_view']
+
     env = suite.make(
-            **config,
+            **robosuite_config,
             has_renderer=True,
             has_offscreen_renderer=True,
-            render_camera="agentview",
+            render_camera=camera_view,
             ignore_done=True,
             use_object_obs=True,
             use_camera_obs=False,
@@ -173,7 +176,7 @@ def visualize_robosuite(
 
         # Render frame
         frame = env.sim.render(
-            camera_name="agentview",
+            camera_name=camera_view,
             height=video_height,
             width=video_width,
             depth=False,

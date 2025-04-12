@@ -92,7 +92,7 @@ def make_env():
             **robosuite_config,
             has_renderer=False,
             has_offscreen_renderer=False,
-            render_camera="agentview",
+            render_camera="birdview",
             ignore_done=True,
             use_camera_obs=False,
             reward_shaping=True,
@@ -124,6 +124,7 @@ def main(
     video_file_prefix: str = 'rl_video',
     model_load_path: Optional[str] = None,
     evaluate_episodes: int = 10,
+    config: Optional[dict] = None,
 ):
     device = torch.device('cuda')
 
@@ -215,6 +216,7 @@ def main(
                 num_skills=num_skills,
                 output_folder=video_output_folder,
                 output_name_prefix=f'{video_file_prefix}_skill{z}',
+                config=config,
             )
 
             result_dict = evaluate_agent_robosuite(
@@ -337,4 +339,5 @@ if __name__ == '__main__':
         video_output_folder,
         video_prefix_path,
         model_load_path=model_load_path,
+        config=config
     )

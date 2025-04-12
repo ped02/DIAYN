@@ -2,8 +2,8 @@
 params:
   environment_name: "Lift"
   robots: "Panda"
-  num_envs: 16
-  num_skills: 10
+  num_envs: 4
+  num_skills: 50
 
 observations:
   use_eef_state: True

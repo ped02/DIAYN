@@ -391,6 +391,10 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
             torch.nn.Linear(256, 2 * action_dim),
         )
         return policy_network
@@ -411,9 +415,9 @@ def main(
 
         return discriminiator_network
 
-    q_optimizer_kwargs = {'lr': 1e-3}
+    q_optimizer_kwargs = {'lr': 1e-4}
     discriminator_optimizer_kwargs = {'lr': 4e-4}
-    policy_optimizer_kwargs = {'lr': 1e-4}
+    policy_optimizer_kwargs = {'lr': 1e-5}
 
     # Setup agent
     diayn_agent = DIAYNAgent(

@@ -16,29 +16,21 @@ from torch.utils.tensorboard import SummaryWriter
 import gymnasium as gym
 
 from DIAYN import ReplayBuffer, DIAYNAgent, rollout_skill
-import DIAYN.envs
 
 # Robosuite stuff:
-import argparse
-import time
-
-import numpy as np
 
 import robosuite as suite
 from robosuite import load_composite_controller_config
-from robosuite.controllers.composite.composite_controller import WholeBody
-from robosuite.wrappers import VisualizationWrapper
 
 from gymnasium.vector import SyncVectorEnv
-import robosuite as suite
 from robosuite.wrappers import GymWrapper
 
 from DIAYN.utils import (
     replay_post_processor,
     pad_to_dim_2,
     plot_to_image,
-    image_numpy_to_torch,
 )
+
 
 # TODO: Put this in a different library
 class CustomGymWrapper(gym.ObservationWrapper):
@@ -54,62 +46,62 @@ class CustomGymWrapper(gym.ObservationWrapper):
         obs_dict = robosuite_env._get_observations()
 
         if self.use_eef_state:
-            observation_raw = np.concatenate([
-                obs_dict['robot0_eef_pos'],
-                obs_dict['robot0_eef_quat']
-            ])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']]
+            )
         else:
-            observation_raw = np.concatenate([
-                obs_dict['robot0_proprio-state'],
-                obs_dict['object-state']
-            ])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_proprio-state'], obs_dict['object-state']]
+            )
 
         # Add new dimensions to observation spaceZ
         new_dim = observation_raw.shape[0]
         self.observation_space = gym.spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(new_dim,),
-            dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(new_dim,), dtype=np.float32
         )
-    
+
     def observation(self, obs):
         # obs is the flat vector from GymWrapper
         # Add x-position (or whatever custom feature you want)
-        obs_dict = 	self.env.unwrapped._get_observations()
+        obs_dict = self.env.unwrapped._get_observations()
 
-        if (self.use_eef_state):
+        if self.use_eef_state:
             # print("Using end effector state")
             # print("eef pos: " + str(obs_dict['robot0_eef_pos']))
             # print("eef quat: " + str(obs_dict['robot0_eef_quat']))
-            observation_raw = np.concatenate([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']]
+            )
         else:
-            observation_raw = np.concatenate([obs_dict['robot0_proprio-state'], obs_dict['object-state']])
+            observation_raw = np.concatenate(
+                [obs_dict['robot0_proprio-state'], obs_dict['object-state']]
+            )
 
         # print("obs dict from custom gym wrapper: " + str(obs_dict))
         # print("observation_raw: " + str(observation_raw))
         return observation_raw
 
+
 def make_env(env_name, robots):
     def _thunk():
-        print("Creating new environment")
+        print('Creating new environment')
 
         controller_config = load_composite_controller_config(
-                controller=None,
-                robot="Panda",
+            controller=None,
+            robot='Panda',
         )
 
         robosuite_config = {
-            "env_name": env_name,
-            "robots": robots,
-            "controller_configs": controller_config,
+            'env_name': env_name,
+            'robots': robots,
+            'controller_configs': controller_config,
         }
 
         robosuite_env = suite.make(
             **robosuite_config,
             has_renderer=False,
             has_offscreen_renderer=False,
-            render_camera="agentview",
+            render_camera='agentview',
             ignore_done=True,
             use_camera_obs=False,
             reward_shaping=True,
@@ -117,19 +109,21 @@ def make_env(env_name, robots):
             hard_reset=False,
         )
 
-        with open("./config/ur5e_config.yaml", "r") as file:
+        with open('./config/ur5e_config.yaml', 'r') as file:
             config = yaml.safe_load(file)
 
         env = CustomGymWrapper(robosuite_env, config)
-        
+
         # Ensure metadata exists and is a dict before modifying
         if env.metadata is None:
             env.metadata = {}
-        env.metadata["render_modes"] = []
-        env.metadata["autoreset"] = False
+        env.metadata['render_modes'] = []
+        env.metadata['autoreset'] = False
 
         return env
+
     return _thunk
+
 
 def plot_skill_trajectories(
     environment_name: str,
@@ -307,13 +301,11 @@ def main(
     plot_train_steps_period: Optional[int] = 1500,
     config: Optional[dict] = None,
 ):
-    
     device = torch.device('cuda')
     print(f'Using device: {device}')
 
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
-
 
     # parser = argparse.ArgumentParser()
     # parser.add_argument("--environment", type=str, default="Lift")
@@ -359,8 +351,10 @@ def main(
     #     robosuite_config["env_configuration"] = args.config
     # else:
     #     args.config = None
-    
-    envs = SyncVectorEnv([make_env(environment_name, robots) for _ in range(num_envs)])
+
+    envs = SyncVectorEnv(
+        [make_env(environment_name, robots) for _ in range(num_envs)]
+    )
 
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
@@ -382,6 +376,8 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
             torch.nn.Linear(256, 1),
         )
 
@@ -393,6 +389,8 @@ def main(
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
             torch.nn.Linear(256, 2 * action_dim),
         )
         return policy_network
@@ -401,6 +399,10 @@ def main(
         # Output logits
         discriminiator_network = torch.nn.Sequential(
             torch.nn.Linear(observation_dim, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
@@ -481,8 +483,9 @@ def main(
     if log_writer is not None:
         plot_skill_trajectories_phase()
 
-        
-    print("------------------------------- Beginning training -------------------------------")
+    print(
+        '------------------------------- Beginning training -------------------------------'
+    )
     start_time = time.time()
     for episode in range(episodes):
         if (episode + 1) % 50 == 0:
@@ -491,7 +494,7 @@ def main(
             )
 
             if model_save_path is not None:
-                print("Saving model states at episode " + str(episode + 1))
+                print('Saving model states at episode ' + str(episode + 1))
                 diayn_agent.save_checkpoint(model_save_path)
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
@@ -517,17 +520,17 @@ def main(
 
     # Save model
     if model_save_path is not None:
-        print("Saving final model states")
+        print('Saving final model states')
         diayn_agent.save_checkpoint(model_save_path)
 
 
 if __name__ == '__main__':
     # Read config file for all settings
     # Print current directory
-    print("Current working directory:", os.getcwd())
-    with open("./config/ur5e_config.yaml", "r") as file:
+    print('Current working directory:', os.getcwd())
+    with open('./config/ur5e_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
-    
+
     environment_name = config['params']['environment_name']
     robots = config['params']['robots']
     num_envs = config['params']['num_envs']
@@ -540,7 +543,7 @@ if __name__ == '__main__':
     model_save_folder = config['training_params']['model_save_folder']
     if model_save_folder is not None:
         os.makedirs(model_save_folder, exist_ok=True)
-    
+
     idx = 0
     while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
         idx += 1
@@ -550,16 +553,18 @@ if __name__ == '__main__':
     log_path = os.path.join(log_parent_folder, run_name)
 
     # Print all params in an orderly fashion:
-    print("------------------------------- DIAYN Training Parameters -------------------------------")
-    print("Environment name: ", environment_name)
-    print("Robots: ", robots)
-    print("Number of environments: ", num_envs)
-    print("Number of steps: ", num_steps)
-    print("Number of skills: ", num_skills)
-    print("Number of episodes: ", episodes)
-    print("Log path: ", log_path)
-    print("Model save folder: ", model_save_folder)
-    print("Model save path: ", model_save_path)
+    print(
+        '------------------------------- DIAYN Training Parameters -------------------------------'
+    )
+    print('Environment name: ', environment_name)
+    print('Robots: ', robots)
+    print('Number of environments: ', num_envs)
+    print('Number of steps: ', num_steps)
+    print('Number of skills: ', num_skills)
+    print('Number of episodes: ', episodes)
+    print('Log path: ', log_path)
+    print('Model save folder: ', model_save_folder)
+    print('Model save path: ', model_save_path)
 
     # TODO: Print which observation states we are going to use
 
@@ -572,5 +577,5 @@ if __name__ == '__main__':
         num_skills,
         log_path=log_path,
         model_save_path=model_save_path,
-        config=config
+        config=config,
     )

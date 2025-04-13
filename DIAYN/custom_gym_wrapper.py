@@ -59,6 +59,7 @@ class CustomGymWrapper(gym.ObservationWrapper):
         # Flags for which state information to include in the observation space
         self.use_eef_state = config['observations']['use_eef_state']
         self.use_joint_vels = config['observations']['use_joint_vels']
+        self.use_cube_pos = config['observations']['use_object_pos']
 
         # Set the observation space
         observation_raw = self.get_observation_raw()
@@ -79,11 +80,15 @@ class CustomGymWrapper(gym.ObservationWrapper):
         """
 
         obs_dict = 	self.env.unwrapped._get_observations()
+        print(obs_dict.keys())
+        exit()
 
         observation_raw = np.concatenate([
                     *([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']] if self.use_eef_state else []),
-                    *( [obs_dict['robot0_joint_vel']] if self.use_joint_vels else [])
+                    *( [obs_dict['robot0_joint_vel']] if self.use_joint_vels else []),
+                    *( [obs_dict['cube_pos']] if self.use_object_pos else []),
                 ])
+                
         
         return observation_raw
 

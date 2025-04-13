@@ -33,8 +33,9 @@ def main(
     # Setup env variables
 
     # TODO: Just get dims directly instead of dealing with this each time
-    envs = SyncVectorEnv([make_env(config) for _ in range(num_envs)])
-
+    envs = SyncVectorEnv(
+        [make_env(config) for _ in range(num_envs)]
+    )
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
 

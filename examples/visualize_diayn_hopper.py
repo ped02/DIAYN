@@ -95,6 +95,7 @@ def main(
     )
 
     if model_load_path is not None:
+        print('Loading model from ' + model_load_path)
         diayn_agent.load_checkpoint(model_load_path)
 
     # Skill

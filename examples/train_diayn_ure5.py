@@ -202,6 +202,7 @@ def main(
     episodes: int,
     steps_per_episode: int,
     num_skills: int,
+    model_load_path: Optional[str] = None,
     log_path: Optional[str] = None,
     model_save_folder: Optional[str] = None,
     plot_dpi: float = 150.0,
@@ -295,6 +296,10 @@ def main(
         device=device,
         log_writer=log_writer,
     )
+
+    if model_load_path is not None:
+        print('Loading model from ' + model_load_path)
+        diayn_agent.load_checkpoint(model_load_path)
 
     # Training
     total_steps = 0
@@ -397,7 +402,6 @@ if __name__ == '__main__':
     # Get location of this file
     current_dir = str(Path(__file__).parent.resolve())
     print('Current directory:', current_dir)
-    exit()
     with open(current_dir + '/config/ur5e_config.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
@@ -407,23 +411,22 @@ if __name__ == '__main__':
     num_steps = config['training_params']['num_steps']
     num_skills = config['params']['num_skills']
     episodes = config['training_params']['episodes']
-    log_parent_folder = config['training_params'][
-        'log_parent_folder'
-    ]  # log path for tensorboard
+    log_parent_folder = config['training_params']['log_parent_folder']  # log path for tensorboard
+
+    model_load_path = config['training_params']['model_load_path']  # load path for tensorboard
 
     # Setup for saving weights
     model_save_folder = config['training_params']['model_save_folder']
+    run_name = 'run_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    model_save_folder = os.path.join(model_save_folder, run_name)
     if model_save_folder is not None:
         os.makedirs(model_save_folder, exist_ok=True)
-
-
-    run_name = 'run_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    
     log_path = os.path.join(log_parent_folder, run_name)
-    model_save_folder = os.path.join(model_save_folder, run_name)
 
     # Print all params in an orderly fashion:
     print(
-        '------------------------------- DIAYN Training Parameters -------------------------------'
+        '------------------------------- Start DIAYN Training Parameters -------------------------------'
     )
     print('Environment name: ', environment_name)
     print('Robots: ', robots)
@@ -433,7 +436,24 @@ if __name__ == '__main__':
     print('Number of episodes: ', episodes)
     print('Log path: ', log_path)
     print('Model save folder: ', model_save_folder)
-    print('Model save path: ', model_save_path)
+    print('Model load path: ', model_load_path)
+
+    # Show which observations we are using:
+    use_eef_state = config['observations']['use_eef_state']
+    use_joint_vels = config['observations']['use_joint_vels']
+    use_cube_pos = config['observations']['use_object_pos']
+
+    print("Observations used:")
+    if use_eef_state:
+        print("     End effector state")
+    if use_joint_vels:
+        print("     Joint velocities")
+    if use_cube_pos:
+        print("     Cube position")
+
+    print(
+        '------------------------------- End DIAYN Training Parameters -------------------------------'
+    )
 
     # TODO: Print which observation states we are going to use
 
@@ -444,6 +464,7 @@ if __name__ == '__main__':
         episodes,
         num_steps,
         num_skills,
+        model_load_path=model_load_path,
         log_path=log_path,
         model_save_folder=model_save_folder,
         config=config,

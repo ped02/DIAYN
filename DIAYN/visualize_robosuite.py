@@ -135,14 +135,18 @@ def visualize_robosuite(
     def process_pure_state(observation_raw):
         return pad_to_dim_2(torch.Tensor(observation_raw).to(device))
     
-    def convert_obs_dict_to_nparray(obs_dict):
-        # Convert the observation dictionary to a numpy array
-        # TODO: Make this variable based on yaml file
-        observations_raw = np.concatenate([
-                obs_dict['robot0_eef_pos'],
-                obs_dict['robot0_eef_quat']
-            ])
-        return observations_raw
+    def convert_obs_dict_to_nparray(obs_dict, config):
+        use_eef_state = config['observations']['use_eef_state']
+        use_joint_vels = config['observations']['use_joint_vels']
+        use_cube_pos = config['observations']['use_cube_pos']
+
+        observation_raw = np.concatenate([
+                    *([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']] if use_eef_state else []),
+                    *( [obs_dict['robot0_joint_vel']] if use_joint_vels else []),
+                    *( [obs_dict['cube_pos']] if use_cube_pos else []),
+                ])
+        
+        return observation_raw
 
     process_observation = process_pure_state
     if skill_index is not None:
@@ -158,8 +162,9 @@ def visualize_robosuite(
 
 
     obs_dict = env.reset()
-    observations_raw = convert_obs_dict_to_nparray(obs_dict)
-    observation = process_observation(observations_raw)
+
+    observation_raw = convert_obs_dict_to_nparray(obs_dict, config)
+    observation = process_observation(observation_raw)
 
     frames = []
 
@@ -170,7 +175,7 @@ def visualize_robosuite(
             actions.cpu().numpy()
         )
 
-        observations_raw = convert_obs_dict_to_nparray(obs_dict)
+        observations_raw = convert_obs_dict_to_nparray(obs_dict, config)
 
         observation = process_observation(observations_raw)
 

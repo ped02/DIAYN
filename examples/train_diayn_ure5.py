@@ -221,6 +221,7 @@ def main(
     )
 
     observation_dims = envs.observation_space.shape[1]
+    print("Observation dims: ", observation_dims)
     action_dims = envs.action_space.shape[1]
 
     action_low = envs.action_space.low[0]
@@ -441,7 +442,7 @@ if __name__ == '__main__':
     # Show which observations we are using:
     use_eef_state = config['observations']['use_eef_state']
     use_joint_vels = config['observations']['use_joint_vels']
-    use_cube_pos = config['observations']['use_object_pos']
+    use_cube_pos = config['observations']['use_cube_pos']
 
     print("Observations used:")
     if use_eef_state:

@@ -80,13 +80,13 @@ class CustomGymWrapper(gym.ObservationWrapper):
         """
 
         obs_dict = 	self.env.unwrapped._get_observations()
-        # print(obs_dict.keys())
+        # print(obs_dict)
         # exit()
 
         observation_raw = np.concatenate([
                     *([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']] if self.use_eef_state else []),
                     *( [obs_dict['robot0_joint_vel']] if self.use_joint_vels else []),
-                    *( [obs_dict['cube_pos']] if self.use_object_pos else []),
+                    *( [obs_dict['cube_pos']] if self.use_cube_pos else []),
                 ])
                 
         

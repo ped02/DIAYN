@@ -247,31 +247,32 @@ def main(
         )
 
         return q_network
-
+    
     def get_policy_network(observation_dim, action_dim):
         policy_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 256),
+            torch.nn.Linear(observation_dim, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(512, 512),
             torch.nn.ReLU(),
             # torch.nn.Linear(256, 256),
             # torch.nn.ReLU(),
-            torch.nn.Linear(256, 2 * action_dim),
+            torch.nn.Linear(512, 2 * action_dim),
         )
         return policy_network
 
     def get_discriminiator_network(observation_dim, skill_dim):
         # Output logits
         discriminiator_network = torch.nn.Sequential(
+            torch.nn.LayerNorm(observation_dim),
             torch.nn.Linear(observation_dim, 256),
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
             # torch.nn.Linear(256, 256),
             # torch.nn.ReLU(),
-            # torch.nn.Linear(256, 256),
-            # torch.nn.ReLU(),
-            torch.nn.Linear(256, skill_dim),
+            torch.nn.Linear(128, skill_dim),
         )
 
         return discriminiator_network
@@ -336,9 +337,9 @@ def main(
             diayn_agent.update(
                 replay_buffer,
                 step=total_steps,
-                q_train_iterations=1,
-                policy_train_iterations=1,
-                discriminator_train_iterations=1,
+                q_train_iterations=config['training_params']['q_train_iterations'],
+                policy_train_iterations=config['training_params']['policy_train_iterations'],
+                discriminator_train_iterations=config['training_params']['discriminator_train_iterations'],
                 batch_size=64,
             )
 
@@ -432,9 +433,14 @@ if __name__ == '__main__':
     print('Environment name: ', environment_name)
     print('Robots: ', robots)
     print('Number of environments: ', num_envs)
-    print('Number of steps: ', num_steps)
     print('Number of skills: ', num_skills)
+    print(' --------------------')
     print('Number of episodes: ', episodes)
+    print('Number of steps: ', num_steps)
+    print('q_train_iterations: ', config['training_params']['q_train_iterations'])
+    print('policy_train_iterations: ', config['training_params']['policy_train_iterations'])
+    print('discriminator_train_iterations: ', config['training_params']['discriminator_train_iterations'])
+    print(' --------------------')
     print('Log path: ', log_path)
     print('Model save folder: ', model_save_folder)
     print('Model load path: ', model_load_path)
@@ -444,6 +450,7 @@ if __name__ == '__main__':
     use_joint_vels = config['observations']['use_joint_vels']
     use_cube_pos = config['observations']['use_cube_pos']
 
+    print(' --------------------')
     print("Observations used:")
     if use_eef_state:
         print("     End effector state")

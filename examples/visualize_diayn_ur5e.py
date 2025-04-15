@@ -56,22 +56,27 @@ def main(
 
     def get_policy_network(observation_dim, action_dim):
         policy_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 256),
+            torch.nn.Linear(observation_dim, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 256),
+            torch.nn.Linear(512, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 2 * action_dim),
+            torch.nn.Linear(512, 2 * action_dim),
         )
         return policy_network
 
     def get_discriminiator_network(observation_dim, skill_dim):
         # Output logits
         discriminiator_network = torch.nn.Sequential(
+            torch.nn.LayerNorm(observation_dim),
             torch.nn.Linear(observation_dim, 256),
             torch.nn.ReLU(),
             torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, skill_dim),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
+            # torch.nn.Linear(256, 256),
+            # torch.nn.ReLU(),
+            torch.nn.Linear(128, skill_dim),
         )
 
         return discriminiator_network
@@ -119,42 +124,42 @@ def main(
                 config=config,
             )
 
-            result_dict = evaluate_agent_robosuite(
-                environment_name,
-                robots,
-                steps_per_episode,
-                evaluate_episodes,
-                diayn_agent,
-                device,
-                skill_index=z,
-                num_skills=num_skills,
-                config= config,
-            )
-            skills_return.append(np.mean(result_dict['total_return']))
-            skills_mean_step_reward.append(
-                np.nanmean(
-                    result_dict['total_return'] / result_dict['episode_length']
-                )
-            )
-            print(
-                f'[Skill {z}] Mean Step Reward: {skills_mean_step_reward[-1]} Mean Total Return: {skills_return[-1]}'
-            )
+            # result_dict = evaluate_agent_robosuite(
+            #     environment_name,
+            #     robots,
+            #     steps_per_episode,
+            #     evaluate_episodes,
+            #     diayn_agent,
+            #     device,
+            #     skill_index=z,
+            #     num_skills=num_skills,
+            #     config= config,
+            # )
+            # skills_return.append(np.mean(result_dict['total_return']))
+            # skills_mean_step_reward.append(
+            #     np.nanmean(
+            #         result_dict['total_return'] / result_dict['episode_length']
+            #     )
+            # )
+            # print(
+            #     f'[Skill {z}] Mean Step Reward: {skills_mean_step_reward[-1]} Mean Total Return: {skills_return[-1]}'
+            # )
 
-        with open(
-            os.path.join(video_output_folder, 'skills_order_step_reward'), 'w'
-        ) as f:
-            f.write(
-                '\n'.join(
-                    [
-                        f'{skill}: {total_return}'
-                        for skill, total_return in sorted(
-                            enumerate(skills_mean_step_reward),
-                            key=lambda x: x[1],
-                            reverse=True,
-                        )
-                    ]
-                )
-            )
+        # with open(
+        #     os.path.join(video_output_folder, 'skills_order_step_reward'), 'w'
+        # ) as f:
+        #     f.write(
+        #         '\n'.join(
+        #             [
+        #                 f'{skill}: {total_return}'
+        #                 for skill, total_return in sorted(
+        #                     enumerate(skills_mean_step_reward),
+        #                     key=lambda x: x[1],
+        #                     reverse=True,
+        #                 )
+        #             ]
+        #         )
+        #     )
 
         with open(
             os.path.join(video_output_folder, 'skills_order_total_return'), 'w'
@@ -184,20 +189,20 @@ def main(
             output_folder=video_output_folder,
             output_name_prefix=f'{video_file_prefix}_skill{visualize_skill}',
         )
-        result_dict = evaluate_agent_robosuite(
-            environment_name,
-            robots,
-            steps_per_episode,
-            evaluate_episodes,
-            diayn_agent,
-            device,
-            skill_index=visualize_skill,
-            num_skills=num_skills,
-            config=config,
-        )
-        print(
-            f'[Skill {visualize_skill}] Mean Step Reward: {np.nanmean(result_dict["total_return"]/result_dict["episode_length"])} Mean Total Return: {np.mean(result_dict["total_return"])}'
-        )
+        # result_dict = evaluate_agent_robosuite(
+        #     environment_name,
+        #     robots,
+        #     steps_per_episode,
+        #     evaluate_episodes,
+        #     diayn_agent,
+        #     device,
+        #     skill_index=visualize_skill,
+        #     num_skills=num_skills,
+        #     config=config,
+        # )
+        # print(
+        #     f'[Skill {visualize_skill}] Mean Step Reward: {np.nanmean(result_dict["total_return"]/result_dict["episode_length"])} Mean Total Return: {np.mean(result_dict["total_return"])}'
+        # )
 
 
 def checkpoint_check(filepath: str):

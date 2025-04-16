@@ -24,3 +24,5 @@ output
 
 # Virtual Env (Roman's)
 venv/
+
+demos/

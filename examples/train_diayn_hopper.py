@@ -34,14 +34,13 @@ DIAYN_PARAMS = {
 # }
 
 
-
-
 def main(
     environment_name: str,
     num_envs: int,
     episodes: int,
     steps_per_episode: int,
     num_skills: int,
+    batch_size: int,
     log_path: Optional[str] = None,
     model_save_folder: Optional[str] = None,
     plot_dpi: float = 150.0,
@@ -57,6 +56,7 @@ def main(
     log_writer = None if log_path is None else SummaryWriter(log_path)
 
     # Setup env variables
+    print('Test')
     envs = gym.make_vec(
         environment_name,
         vectorization_mode=gym.VectorizeMode.SYNC,
@@ -137,7 +137,7 @@ def main(
 
     if model_load_path is not None:
         diayn_agent.load_checkpoint(model_load_path)
-    
+
     # Training
     total_steps = 0
 
@@ -180,7 +180,7 @@ def main(
                 q_train_iterations=1,
                 policy_train_iterations=1,
                 discriminator_train_iterations=1,
-                batch_size=DIAYN_PARAMS['batch_size'],
+                batch_size=batch_size,
             )
 
             total_steps += 1
@@ -201,7 +201,9 @@ def main(
             )
             # Save model
             if model_save_folder is not None:
-                diayn_agent.save_checkpoint(model_save_folder + f'/checkpoint_{episode + 1}.pt')
+                diayn_agent.save_checkpoint(
+                    model_save_folder + f'/checkpoint_{episode + 1}.pt'
+                )
         skill_index = torch.randint(0, num_skills, (1,))
         skill_vector = torch.nn.functional.one_hot(
             skill_index, num_classes=num_skills
@@ -232,26 +234,27 @@ def main(
 if __name__ == '__main__':
     environment_name = 'Hopper-v5'
 
-    episodes = DIAYN_PARAMS['num_epochs']
-    num_envs = 4
-    num_steps = DIAYN_PARAMS['num_steps']  # 1000
+    episodes = 1000
+    num_envs = 16
+    num_steps = 1000  # 1000
     num_skills = 50
+    batch_size = 64
 
     # Create new run folder for current run
     root_dir = 'hopper_runs'
     idx = 0
     while os.path.exists(root_dir + '/run_' + str(idx)):
         idx += 1
-    
+
     root_dir = root_dir + '/run_' + str(idx)
     os.makedirs(root_dir, exist_ok=True)
 
     # Create log folder inside new run folder
     log_path = root_dir + '/log'
     os.makedirs(log_path, exist_ok=True)
-    
+
     # Create model save folder inside new run folder
-    model_save_folder = root_dir + "/weights"
+    model_save_folder = root_dir + '/weights'
     os.makedirs(model_save_folder, exist_ok=True)
 
     # Use model_load_path if we want
@@ -261,17 +264,16 @@ if __name__ == '__main__':
         model_load_path = '/home/rmineyev3/DIAYN/examples/hopper_runs/run_3/weights/checkpoint_1250.pt'
     else:
         model_load_path = None
-    
-    
+
     # # look through folder, and set model name to be the next number
     # idx = 0
     # while os.path.exists(model_save_folder + '/' + str(idx) + '.pt'):
     #     idx += 1
     # model_save_path = model_save_folder + '/' + str(idx) + '.pt'
 
-    print("Log path: ", log_path)
-    print("Model save folder: ", model_save_folder)
-    print("Model load path: ", model_load_path)
+    print('Log path: ', log_path)
+    print('Model save folder: ', model_save_folder)
+    print('Model load path: ', model_load_path)
 
     main(
         environment_name,
@@ -281,5 +283,7 @@ if __name__ == '__main__':
         num_skills,
         log_path=log_path,
         model_save_folder=model_save_folder,
-        model_load_path=model_load_path
+        model_load_path=model_load_path,
+        # model_save_path=model_save_path,
+        batch_size=batch_size,
     )

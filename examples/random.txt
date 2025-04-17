@@ -1,0 +1,17 @@
+Error: self.policy.load_state_dict(state_dict['policy_state_dict'])
+def set_state_dict(self, state_dict: Mapping[str, Any]):
+def load_checkpoint(self, filepath: str):
+in visualize_diayn_ur5e.py: diayn_agent.load_checkpoint(model_load_path)
+
+Load checkpoint function:
+1) checkpoint = torch.load(filepath, map_location=self.device)
+2) self.set_state_dict(checkpoint)
+
+RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x17 and 59x256)
+mean, log_std_dev = self.policy(states).chunk(2, dim=-1)
+def get_action(self, states, noisy=False, return_prob=False):
+actions = agent.get_action(observation).squeeze(0)
+observations_raw, rewards, done, _, _ = env_recorder.step(
+            actions.cpu().numpy()
+        )
+observation = process_observation(observations_raw)

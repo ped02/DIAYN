@@ -1,6 +1,7 @@
 # Python
 __pycache__
 *.egg-info
+.ruff_cache/
 
 # Virtual Env
 dev/
@@ -24,6 +25,7 @@ output
 
 # Virtual Env (Roman's)
 venv/
+robosuite_venv
 
 demos/
 

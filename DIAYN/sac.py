@@ -47,7 +47,6 @@ class SAC:
         device='cpu',
     ):
         """SAC for continuous control."""
-
         self.state_dim = state_dim
         self.action_dim = action_dim
 

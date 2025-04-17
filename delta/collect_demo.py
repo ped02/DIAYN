@@ -43,7 +43,7 @@ if __name__ == '__main__':
         '--robots',
         nargs='+',
         type=str,
-        default='UR5e',
+        default='Panda',
         help='Which robot(s) to use in the env',
     )
     parser.add_argument(
@@ -260,9 +260,9 @@ if __name__ == '__main__':
                 # store state and action if action taken
                 if not np.array_equal(env_action, no_action):
                     # if True:
-                    observation = np.array(
-                        env.sim.get_state().flatten()
-                    ).astype(np.float32)
+                    obs_dict = env.observation_spec()
+                    observation = [*obs_dict['robot0_proprio-state'], *obs_dict['object-state']]
+                    observation = np.array(observation, dtype=np.float32)
                     print(f'env action: {env_action}')
                     tau.append((observation, env_action))
 

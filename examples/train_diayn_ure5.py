@@ -449,15 +449,19 @@ if __name__ == '__main__':
     use_eef_state = config['observations']['use_eef_state']
     use_joint_vels = config['observations']['use_joint_vels']
     use_cube_pos = config['observations']['use_cube_pos']
+    use_vae = config['observations']['use_vae']
 
     print(' --------------------')
     print("Observations used:")
-    if use_eef_state:
-        print("     End effector state")
-    if use_joint_vels:
-        print("     Joint velocities")
-    if use_cube_pos:
-        print("     Cube position")
+    if use_vae:
+        print("     VAE latent space")
+    else:
+        if use_eef_state:
+            print("     End effector state")
+        if use_joint_vels:
+            print("     Joint velocities")
+        if use_cube_pos:
+            print("     Cube position")
 
     print(
         '------------------------------- End DIAYN Training Parameters -------------------------------'

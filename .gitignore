@@ -26,3 +26,6 @@ output
 venv/
 
 demos/
+
+# Trajectory Files
+delta/trajectories

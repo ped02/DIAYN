@@ -110,7 +110,10 @@ def rollout_skill(
 
     observations_raw, info = environment.reset()
     observations = torch.cat(
-        [pad_to_dim_2(torch.Tensor(observations_raw)), expanded_skill_vector],
+        [
+            pad_to_dim_2(torch.Tensor(observations_raw)).to(device),
+            expanded_skill_vector.to(device),
+        ],
         dim=-1,
     )
 
@@ -133,8 +136,8 @@ def rollout_skill(
 
         next_observations = torch.cat(
             [
-                pad_to_dim_2(torch.Tensor(next_observations_raw)),
-                expanded_skill_vector,
+                pad_to_dim_2(torch.Tensor(next_observations_raw)).to(device),
+                expanded_skill_vector.to(device),
             ],
             dim=-1,
         )
@@ -145,17 +148,18 @@ def rollout_skill(
             1 - torch.Tensor(terminated | truncated), dim=1
         )
 
-        replay_buffer.add(
-            (
-                observations,
-                skill_index_torch,
-                actions,
-                reward_scale * rewards,
-                next_observations,
-                not_dones,
-            ),
-            split_first_dim=True,
-        )
+        if replay_buffer is not None:
+            replay_buffer.add(
+                (
+                    observations,
+                    skill_index_torch,
+                    actions,
+                    reward_scale * rewards,
+                    next_observations,
+                    not_dones,
+                ),
+                split_first_dim=True,
+            )
         observations = next_observations
 
         total_reward += reward_scale * rewards.squeeze()

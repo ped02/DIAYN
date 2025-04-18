@@ -15,15 +15,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 import gymnasium as gym
 
-from DIAYN import ReplayBuffer, DIAYNAgent, CustomGymWrapper, make_env, rollout_skill
+from DIAYN import ReplayBuffer, DIAYNAgent, make_env, rollout_skill
 
 # Robosuite stuff:
 
-import robosuite as suite
-from robosuite import load_composite_controller_config
 
 from gymnasium.vector import SyncVectorEnv
-from robosuite.wrappers import GymWrapper
 
 from pathlib import Path
 
@@ -32,6 +29,7 @@ from DIAYN.utils import (
     pad_to_dim_2,
     plot_to_image,
 )
+
 
 def plot_skill_trajectories(
     environment_name: str,
@@ -216,12 +214,10 @@ def main(
     # Setup logging
     log_writer = None if log_path is None else SummaryWriter(log_path)
 
-    envs = SyncVectorEnv(
-        [make_env(config) for _ in range(num_envs)]
-    )
+    envs = SyncVectorEnv([make_env(config) for _ in range(num_envs)])
 
     observation_dims = envs.observation_space.shape[1]
-    print("Observation dims: ", observation_dims)
+    print('Observation dims: ', observation_dims)
     action_dims = envs.action_space.shape[1]
 
     action_low = envs.action_space.low[0]
@@ -247,7 +243,7 @@ def main(
         )
 
         return q_network
-    
+
     def get_policy_network(observation_dim, action_dim):
         policy_network = torch.nn.Sequential(
             torch.nn.Linear(observation_dim, 512),
@@ -277,9 +273,11 @@ def main(
 
         return discriminiator_network
 
-    q_optimizer_kwargs = {'lr': 1e-3}
+    q_optimizer_kwargs = {'lr': 1e-4}
     discriminator_optimizer_kwargs = {'lr': 4e-4}
-    policy_optimizer_kwargs = {'lr': 1e-4}
+    policy_optimizer_kwargs = {'lr': 3e-5}
+
+    constant_alpha = False
 
     # Setup agent
     diayn_agent = DIAYNAgent(
@@ -337,10 +335,17 @@ def main(
             diayn_agent.update(
                 replay_buffer,
                 step=total_steps,
-                q_train_iterations=config['training_params']['q_train_iterations'],
-                policy_train_iterations=config['training_params']['policy_train_iterations'],
-                discriminator_train_iterations=config['training_params']['discriminator_train_iterations'],
+                q_train_iterations=config['training_params'][
+                    'q_train_iterations'
+                ],
+                policy_train_iterations=config['training_params'][
+                    'policy_train_iterations'
+                ],
+                discriminator_train_iterations=config['training_params'][
+                    'discriminator_train_iterations'
+                ],
                 batch_size=64,
+                constant_alpha=constant_alpha,
             )
 
             total_steps += 1
@@ -413,9 +418,13 @@ if __name__ == '__main__':
     num_steps = config['training_params']['num_steps']
     num_skills = config['params']['num_skills']
     episodes = config['training_params']['episodes']
-    log_parent_folder = config['training_params']['log_parent_folder']  # log path for tensorboard
+    log_parent_folder = config['training_params'][
+        'log_parent_folder'
+    ]  # log path for tensorboard
 
-    model_load_path = config['training_params']['model_load_path']  # load path for tensorboard
+    model_load_path = config['training_params'][
+        'model_load_path'
+    ]  # load path for tensorboard
 
     # Setup for saving weights
     model_save_folder = config['training_params']['model_save_folder']
@@ -423,7 +432,7 @@ if __name__ == '__main__':
     model_save_folder = os.path.join(model_save_folder, run_name)
     if model_save_folder is not None:
         os.makedirs(model_save_folder, exist_ok=True)
-    
+
     log_path = os.path.join(log_parent_folder, run_name)
 
     # Print all params in an orderly fashion:
@@ -437,9 +446,17 @@ if __name__ == '__main__':
     print(' --------------------')
     print('Number of episodes: ', episodes)
     print('Number of steps: ', num_steps)
-    print('q_train_iterations: ', config['training_params']['q_train_iterations'])
-    print('policy_train_iterations: ', config['training_params']['policy_train_iterations'])
-    print('discriminator_train_iterations: ', config['training_params']['discriminator_train_iterations'])
+    print(
+        'q_train_iterations: ', config['training_params']['q_train_iterations']
+    )
+    print(
+        'policy_train_iterations: ',
+        config['training_params']['policy_train_iterations'],
+    )
+    print(
+        'discriminator_train_iterations: ',
+        config['training_params']['discriminator_train_iterations'],
+    )
     print(' --------------------')
     print('Log path: ', log_path)
     print('Model save folder: ', model_save_folder)
@@ -451,13 +468,13 @@ if __name__ == '__main__':
     use_cube_pos = config['observations']['use_cube_pos']
 
     print(' --------------------')
-    print("Observations used:")
+    print('Observations used:')
     if use_eef_state:
-        print("     End effector state")
+        print('     End effector state')
     if use_joint_vels:
-        print("     Joint velocities")
+        print('     Joint velocities')
     if use_cube_pos:
-        print("     Cube position")
+        print('     Cube position')
 
     print(
         '------------------------------- End DIAYN Training Parameters -------------------------------'

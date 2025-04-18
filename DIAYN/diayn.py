@@ -44,6 +44,7 @@ class DIAYNAgent(SAC):
             'skill_dim': self.skill_dim,
             'discriminator_state_dict': self.discriminator.state_dict(),
             'discriminator_optimizer_state_dict': self.discriminator_optimizer.state_dict(),
+            'alpha': self.alpha,
         }
 
         if state_dict is not None:
@@ -64,6 +65,26 @@ class DIAYNAgent(SAC):
             state_dict['discriminator_optimizer_state_dict']
         )
 
+        self.alpha = state_dict['alpha']
+
+    def decay_alpha(
+        self,
+        total_steps,
+        initial_alpha=0.1,
+        alpha_min=0.005,
+        target_decay_steps=500_000,
+    ):
+        """
+        Computes updated alpha value at each step. Can't go lower than alpha_min.
+        This could help with having high entropy at the beginning of training to discover diverse skills,
+        but decreases entropy over time to reduce jittery motion from randomness and noise.
+        """
+        decay_rate = (alpha_min / initial_alpha) ** (1 / target_decay_steps)
+        decayed_alpha = initial_alpha * (decay_rate**total_steps)
+        new_alpha = max(decayed_alpha, alpha_min)
+
+        return new_alpha
+
     def update(
         self,
         replay_buffer,
@@ -73,7 +94,20 @@ class DIAYNAgent(SAC):
         discriminator_train_iterations,
         batch_size,
         tau=0.005,
+        constant_alpha=True,
     ):
+        if not constant_alpha:
+            # Update alpha
+            self.alpha = self.decay_alpha(
+                total_steps=step,
+                initial_alpha=0.1,
+                alpha_min=0.01,
+                target_decay_steps=1_000_000,
+            )
+
+            if self.log_writer is not None:
+                self.log_writer.add_scalar('stats/alpha', self.alpha, step)
+
         # Train Step
         for _ in range(q_train_iterations):
             (

@@ -13,7 +13,7 @@ observations:
 training_params:
   episodes: 2000
   num_steps: 1000
-  model_load_path: '/home/roman/College/Spring 2025/DRL/DIAYN/examples/weights/diayn_ur5e/run_2025-04-14_12-51-50/episode_320.pt'
+  model_load_path: 'weights/diayn_ur5e/run_2025-04-17_15-38-57\episode_130.pt'
   log_parent_folder: 'runs/diayn_ur5e'
   model_save_folder: 'weights/diayn_ur5e'
 
@@ -21,11 +21,24 @@ training_params:
   policy_train_iterations: 1
   discriminator_train_iterations: 4
 
+hrl_training_params:
+  episodes: 2000
+  num_steps: 1000
+  model_load_path: null
+  log_parent_folder: 'runs/hrl_ur5e'
+  model_save_folder: 'weights/hrl_ur5e'
+  model_load_path_pretrained_diayn: 'weights/diayn_ur5e/run_google_drive/episode_1560.pt'
+
 evaluation_params:
   camera_view: 'birdview'
   num_steps: 500
 
 file_params:
-  model_load_path: "/home/roman/College/Spring 2025/DRL/DIAYN/examples/weights/diayn_ur5e/run_2025-04-14_19-48-32/episode_610.pt"
+  model_load_path: 'weights/diayn_ur5e/run_2025-04-18_04-32-31/episode_110.pt'
   video_output_folder: "videos/diayn_ur5e"
+  video_prefix_path: 'rl_video'
+
+hrl_file_params:
+  model_load_path: null
+  video_output_folder: "videos/hrl_ur5e"
   video_prefix_path: 'rl_video'

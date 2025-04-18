@@ -1,7 +1,10 @@
 import torch
-from vae_base import BaseVAE, T
 from torch import nn
 from torch.nn import functional as F
+from typing import TypeVar
+from DIAYN.vae_base import BaseVAE
+
+T = TypeVar('T')
 
 class VAE(BaseVAE):
 

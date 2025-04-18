@@ -1,25 +1,21 @@
 import os
 from typing import Optional, Union
-
+import yaml
 import numpy as np
-
 import torch
-
 import gymnasium as gym
+from pathlib import Path
 
-from DIAYN import DIAYNAgent, evaluate_agent, visualize
+from DIAYN import DIAYNAgent, CustomGymWrapper, make_env, evaluate_agent_robosuite, visualize_robosuite
 
-DIAYN_PARAMS = {
-    'layer_size': 300,
-    'batch_size': 128,
-    'num_steps': 1000,
-    'num_epochs': 10000,
-    'lr': 3e-4,
-}
+import robosuite as suite
+from robosuite import load_composite_controller_config
 
+from gymnasium.vector import SyncVectorEnv
 
 def main(
     environment_name: str,
+    robots: str,
     steps_per_episode: int,
     num_skills: int,
     visualize_skill: Union[int, None],
@@ -27,6 +23,7 @@ def main(
     video_file_prefix: str = 'rl_video',
     model_load_path: Optional[str] = None,
     evaluate_episodes: int = 10,
+    config: Optional[dict] = None,
 ):
     device = torch.device('cuda')
 
@@ -34,12 +31,11 @@ def main(
     log_writer = None
 
     # Setup env variables
-    envs = gym.make_vec(
-        environment_name,
-        vectorization_mode=gym.VectorizeMode.SYNC,
-        num_envs=1,
-    )
 
+    # TODO: Just get dims directly instead of dealing with this each time
+    envs = SyncVectorEnv(
+        [make_env(config) for _ in range(num_envs)]
+    )
     observation_dims = envs.observation_space.shape[1]
     action_dims = envs.action_space.shape[1]
 
@@ -48,44 +44,46 @@ def main(
 
     # Setup networks
     def get_q_network(observation_dim, action_dim):
-        layer_size = DIAYN_PARAMS['layer_size']
         q_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim + action_dim, layer_size),
+            torch.nn.Linear(observation_dim + action_dim, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(layer_size, layer_size),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(layer_size, 1),
+            torch.nn.Linear(256, 1),
         )
 
         return q_network
 
     def get_policy_network(observation_dim, action_dim):
-        layer_size = DIAYN_PARAMS['layer_size']
         policy_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, layer_size),
+            torch.nn.Linear(observation_dim, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(layer_size, layer_size),
+            torch.nn.Linear(512, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(layer_size, 2 * action_dim),
+            torch.nn.Linear(512, 2 * action_dim),
         )
         return policy_network
 
     def get_discriminiator_network(observation_dim, skill_dim):
         # Output logits
-        layer_size = DIAYN_PARAMS['layer_size']
         discriminiator_network = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, layer_size),
+            torch.nn.LayerNorm(observation_dim),
+            torch.nn.Linear(observation_dim, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(layer_size, layer_size),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(layer_size, skill_dim),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
+            # torch.nn.Linear(256, 256),
+            # torch.nn.ReLU(),
+            torch.nn.Linear(128, skill_dim),
         )
 
         return discriminiator_network
 
-    q_optimizer_kwargs = {'lr': DIAYN_PARAMS['lr']}
+    q_optimizer_kwargs = {'lr': 1e-3}
     discriminator_optimizer_kwargs = {'lr': 4e-4}
-    policy_optimizer_kwargs = {'lr': DIAYN_PARAMS['lr']}
+    policy_optimizer_kwargs = {'lr': 1e-4}
 
     # Setup agent
     diayn_agent = DIAYNAgent(
@@ -106,7 +104,6 @@ def main(
     )
 
     if model_load_path is not None:
-        print('Loading model from ' + model_load_path)
         diayn_agent.load_checkpoint(model_load_path)
 
     # Skill
@@ -114,8 +111,9 @@ def main(
         skills_mean_step_reward = []
         skills_return = []
         for z in range(num_skills):
-            visualize(
+            visualize_robosuite(
                 environment_name,
+                robots,
                 steps_per_episode,
                 diayn_agent,
                 device,
@@ -123,42 +121,45 @@ def main(
                 num_skills=num_skills,
                 output_folder=video_output_folder,
                 output_name_prefix=f'{video_file_prefix}_skill{z}',
+                config=config,
             )
 
-            result_dict = evaluate_agent(
-                environment_name,
-                steps_per_episode,
-                evaluate_episodes,
-                diayn_agent,
-                device,
-                skill_index=z,
-                num_skills=num_skills,
-            )
-            skills_return.append(np.mean(result_dict['total_return']))
-            skills_mean_step_reward.append(
-                np.nanmean(
-                    result_dict['total_return'] / result_dict['episode_length']
-                )
-            )
-            print(
-                f'[Skill {z}] Mean Step Reward: {skills_mean_step_reward[-1]} Mean Total Return: {skills_return[-1]}'
-            )
+            # result_dict = evaluate_agent_robosuite(
+            #     environment_name,
+            #     robots,
+            #     steps_per_episode,
+            #     evaluate_episodes,
+            #     diayn_agent,
+            #     device,
+            #     skill_index=z,
+            #     num_skills=num_skills,
+            #     config= config,
+            # )
+            # skills_return.append(np.mean(result_dict['total_return']))
+            # skills_mean_step_reward.append(
+            #     np.nanmean(
+            #         result_dict['total_return'] / result_dict['episode_length']
+            #     )
+            # )
+            # print(
+            #     f'[Skill {z}] Mean Step Reward: {skills_mean_step_reward[-1]} Mean Total Return: {skills_return[-1]}'
+            # )
 
-        with open(
-            os.path.join(video_output_folder, 'skills_order_step_reward'), 'w'
-        ) as f:
-            f.write(
-                '\n'.join(
-                    [
-                        f'{skill}: {total_return}'
-                        for skill, total_return in sorted(
-                            enumerate(skills_mean_step_reward),
-                            key=lambda x: x[1],
-                            reverse=True,
-                        )
-                    ]
-                )
-            )
+        # with open(
+        #     os.path.join(video_output_folder, 'skills_order_step_reward'), 'w'
+        # ) as f:
+        #     f.write(
+        #         '\n'.join(
+        #             [
+        #                 f'{skill}: {total_return}'
+        #                 for skill, total_return in sorted(
+        #                     enumerate(skills_mean_step_reward),
+        #                     key=lambda x: x[1],
+        #                     reverse=True,
+        #                 )
+        #             ]
+        #         )
+        #     )
 
         with open(
             os.path.join(video_output_folder, 'skills_order_total_return'), 'w'
@@ -177,8 +178,9 @@ def main(
             )
 
     else:
-        visualize(
+        visualize_robosuite(
             environment_name,
+            robots,
             steps_per_episode,
             diayn_agent,
             device,
@@ -187,18 +189,20 @@ def main(
             output_folder=video_output_folder,
             output_name_prefix=f'{video_file_prefix}_skill{visualize_skill}',
         )
-        result_dict = evaluate_agent(
-            environment_name,
-            steps_per_episode,
-            evaluate_episodes,
-            diayn_agent,
-            device,
-            skill_index=visualize_skill,
-            num_skills=num_skills,
-        )
-        print(
-            f'[Skill {visualize_skill}] Mean Step Reward: {np.nanmean(result_dict["total_return"]/result_dict["episode_length"])} Mean Total Return: {np.mean(result_dict["total_return"])}'
-        )
+        # result_dict = evaluate_agent_robosuite(
+        #     environment_name,
+        #     robots,
+        #     steps_per_episode,
+        #     evaluate_episodes,
+        #     diayn_agent,
+        #     device,
+        #     skill_index=visualize_skill,
+        #     num_skills=num_skills,
+        #     config=config,
+        # )
+        # print(
+        #     f'[Skill {visualize_skill}] Mean Step Reward: {np.nanmean(result_dict["total_return"]/result_dict["episode_length"])} Mean Total Return: {np.mean(result_dict["total_return"])}'
+        # )
 
 
 def checkpoint_check(filepath: str):
@@ -213,41 +217,38 @@ def checkpoint_check(filepath: str):
 
 
 if __name__ == '__main__':
-    environment_name = 'Hopper-v5'
+    # Read config file for all settings
+    current_dir = str(Path(__file__).parent.resolve())
+    print('Current directory:', current_dir)
 
-    episodes = 1000
-    num_envs = 4
-    num_steps = 1000  # 1000
-    num_skills = 50
+    with open(current_dir + '/config/ur5e_config.yaml', 'r') as file:
+        config = yaml.safe_load(file)
+    # exit()
+    environment_name = config['params']['environment_name']
+    robots = config['params']['robots']
+    num_envs = config['params']['num_envs']
+    num_steps = config['evaluation_params']['num_steps']
+    num_skills = config['params']['num_skills']
 
-    checkpoint_name = 'checkpoint_600'
-    model_load_path = (
-        '/home/rmineyev3/DIAYN/examples/hopper_runs/run_6/weights/'
-        + checkpoint_name
-        + '.pt'
-    )
+    # Folder paths
+    model_load_path = config['file_params']['model_load_path']
+    video_output_folder = config['file_params']['video_output_folder']
+    video_prefix_path = config['file_params']['video_prefix_path']
 
-    # checkpoint_check(model_load_path)
-
+    # If we want a specific skill to be visualized
     visualize_skill = None
 
-    # Check if output folder exists. If not, create it
-    video_output_folder = (
-        '/home/rmineyev3/DIAYN/examples/hopper_runs/run_6/weights/'
-        + checkpoint_name
-        + '_videos'
-    )
     if video_output_folder is not None:
         os.makedirs(video_output_folder, exist_ok=True)
 
-    video_prefix_path = 'rl_video'
-
     main(
         environment_name,
+        robots,
         num_steps,
         num_skills,
         visualize_skill,
         video_output_folder,
         video_prefix_path,
         model_load_path=model_load_path,
+        config=config
     )

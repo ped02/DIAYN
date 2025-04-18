@@ -9,7 +9,10 @@ observations:
   use_eef_state: True
   use_joint_vels: True
   use_cube_pos: True
+
+vae:
   use_vae: True
+  latent_dim: 8
 
 training_params:
   episodes: 2000

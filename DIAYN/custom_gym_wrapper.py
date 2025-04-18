@@ -64,14 +64,7 @@ class CustomGymWrapper(gym.ObservationWrapper):
         self.use_eef_state = config['observations']['use_eef_state']
         self.use_joint_vels = config['observations']['use_joint_vels']
         self.use_cube_pos = config['observations']['use_cube_pos']
-        self.use_vae = config['observations']['use_vae']
-
-        # Load trained VAE model if desired
-        if self.use_vae:
-            model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), os.path.join('models', 'full_to_8_vae.pt'))
-            self.vae = VAE(38, 8)
-            self.vae.load_state_dict(torch.load(model_path))
-            self.vae.eval()
+        self.use_vae = config['vae']['use_vae']
 
         # Set the observation space
         observation_raw = self.get_observation_raw()
@@ -97,9 +90,7 @@ class CustomGymWrapper(gym.ObservationWrapper):
 
         if self.use_vae:
             observation = [*obs_dict['robot0_proprio-state'], *obs_dict['object-state']]
-            obs_tensor = torch.tensor(observation, dtype=torch.float32)
-            mu, log_var = self.vae.encode(obs_tensor)
-            observation_raw = self.vae.reparameterize(mu, log_var).numpy()
+            observation_raw = np.array(observation, dtype=np.float32)
         else:
             observation_raw = np.concatenate([
                         *([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']] if self.use_eef_state else []),

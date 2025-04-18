@@ -97,10 +97,20 @@ class SAC:
             [*self.q1.parameters(), *self.q2.parameters()], **q_optimizer_kwargs
         )
 
+    def freeze(self):
+        def freeze_model(model):
+            model.eval()
+            for param in model.parameters():
+                param.requires_grad = False
+
+        freeze_model(self.policy)
+        freeze_model(self.q1)
+        freeze_model(self.q2)
+
     def get_state_dict(self, state_dict: Optional[Mapping[str, Any]] = None):
-        '''
+        """
         Return parameters of agent and current weights of models
-        '''
+        """
 
         checkpoint = {
             'policy_state_dict': self.policy.state_dict(),
@@ -131,10 +141,10 @@ class SAC:
         return checkpoint
 
     def set_state_dict(self, state_dict: Mapping[str, Any]):
-        ''''
+        """'
         Load parameters of agent and weights of models'
         I guess in case we want to start training from a checkpoint?
-        '''
+        """
 
         self.policy.load_state_dict(state_dict['policy_state_dict'])
         self.q1.load_state_dict(state_dict['q1_state_dict'])
@@ -177,9 +187,9 @@ class SAC:
         )
 
     def save_checkpoint(self, filepath: str):
-        '''
+        """
         Save to load using load_checkpoint later
-        '''
+        """
 
         checkpoint = self.get_state_dict()
         torch.save(checkpoint, filepath)
@@ -195,9 +205,9 @@ class SAC:
         logger.info(f'Checkpoint loaded from {filepath}')
 
     def scale_action(self, action):
-        '''
+        """
         Scale action to be between 0 and 1
-        '''
+        """
 
         z = (torch.nn.functional.tanh(action) + 1.0) / 2.0
         sacled_action = (
@@ -232,7 +242,7 @@ class SAC:
         else:
             action = mean
             log_prob_action = 0.0
-        
+
         processed_action = self.process_action(action)
         return (
             processed_action

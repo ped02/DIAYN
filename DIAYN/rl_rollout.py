@@ -15,6 +15,7 @@ def rollout(
     agent: AgentBase,
     device,
     reward_scale: float = 1.0,
+    post_step_func: Optional[Callable[[int], None]] = None,
 ):
     """Rollout agent and save trajectory to replay buffer. Log reward once at the end of rollout
 
@@ -71,6 +72,9 @@ def rollout(
         observations = next_observations
 
         total_reward += reward_scale * rewards.squeeze()
+
+        if post_step_func is not None:
+            post_step_func(step)
 
     mean_step_reward = total_reward.mean().item() / num_steps
 

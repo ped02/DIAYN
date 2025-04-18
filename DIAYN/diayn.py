@@ -36,6 +36,14 @@ class DIAYNAgent(SAC):
             self.discriminator.parameters(), **discriminator_optimizer_kwargs
         )
 
+    def freeze(self):
+        def freeze_model(model):
+            model.eval()
+            for param in model.parameters():
+                param.requires_grad = False
+
+        freeze_model(self.discriminator)
+
     def get_state_dict(self, state_dict=None):
         state_dict = super().get_state_dict(state_dict)
 

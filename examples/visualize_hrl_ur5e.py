@@ -29,9 +29,7 @@ def create_hrl_agent(high_level_policy, skill_policy, num_skills, device):
             state_skill = torch.cat(
                 [obs.to(self.device), skill_onehot.to(self.device)], dim=-1
             )
-            action = self.skill_policy.get_action(
-                state_skill.unsqueeze(0), noisy=noisy
-            )
+            action = self.skill_policy.get_action(state_skill, noisy=noisy)
             return action
 
     return HRLWrapper(high_level_policy, skill_policy)
@@ -150,7 +148,7 @@ def main(
                 steps_per_episode,
                 agent=hrl_agent,
                 device=device,
-                skill_index=z,
+                skill_index=None,
                 num_skills=num_skills,
                 output_folder=video_output_folder,
                 output_name_prefix=f'{video_file_prefix}_skill{z}',

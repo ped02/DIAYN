@@ -41,6 +41,8 @@ class SAC:
         q_network_kwargs: Mapping[str, Any] = {},
         policy_optimizer_kwargs: Mapping[str, Any] = {},
         q_optimizer_kwargs: Mapping[str, Any] = {},
+        policy_gradient_clip_norm: Optional[float] = None,
+        q_gradient_clip_norm: Optional[float] = None,
         action_low=None,
         action_high=None,
         log_writer: Optional[SummaryWriter] = None,
@@ -97,6 +99,9 @@ class SAC:
             [*self.q1.parameters(), *self.q2.parameters()], **q_optimizer_kwargs
         )
 
+        self.policy_gradient_clip_norm = policy_gradient_clip_norm
+        self.q_gradient_clip_norm = q_gradient_clip_norm
+
     def freeze(self):
         def freeze_model(model):
             model.eval()
@@ -133,6 +138,8 @@ class SAC:
             if self.action_high is None
             else self.action_high.cpu().tolist(),
             'clamp_output': self.clamp_output,
+            'policy_gradient_clip_norm': self.policy_gradient_clip_norm,
+            'q_gradient_clip_norm': self.q_gradient_clip_norm,
         }
 
         if state_dict is not None:
@@ -185,6 +192,12 @@ class SAC:
         self.process_action = (
             self.scale_action if self.clamp_output else lambda x: x
         )
+
+        self.policy_gradient_clip_norm = state_dict.get(
+            'policy_gradient_clip_norm'
+        )
+
+        self.q_gradient_clip_norm = state_dict.get('1_gradient_clip_norm')
 
     def save_checkpoint(self, filepath: str):
         """
@@ -305,7 +318,7 @@ class SAC:
 
         return q_loss
 
-    def get_policy_loss(self, states):
+    def get_policy_loss(self, states, next_states):
         """Calculate SAC policy loss"""
         policy_action, policy_action_log_prob = self.get_action(
             states, noisy=True, return_prob=True
@@ -321,7 +334,13 @@ class SAC:
             - self.alpha * policy_action_log_prob.sum(dim=-1)
         )
 
-        return policy_loss
+        aux_loss = (
+            self.policy.get_loss(states, policy_action, next_states)
+            if hasattr(self.policy, 'get_loss')
+            else torch.tensor(0.0)
+        )
+
+        return policy_loss, aux_loss
 
     def update(
         self,
@@ -337,6 +356,11 @@ class SAC:
             q_loss = self.get_q_loss(*replay_buffer.sample(batch_size))
             self.q_optimizer.zero_grad()
             q_loss.backward()
+            if self.q_gradient_clip_norm is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    [*self.q1.parameters(), *self.q2.parameters()],
+                    self.q_gradient_clip_norm,
+                )
             self.q_optimizer.step()
 
         if self.log_writer is not None:
@@ -344,15 +368,30 @@ class SAC:
 
         # Policy Train step
         for _ in range(policy_train_iterations):
-            states, _, _, _, _ = replay_buffer.sample(batch_size)
-            policy_loss = self.get_policy_loss(states)
+            states, _, _, next_states, _ = replay_buffer.sample(batch_size)
+            policy_loss, policy_aux_loss = self.get_policy_loss(
+                states, next_states
+            )
+            total_policy_loss = policy_loss + policy_aux_loss
             self.policy_optimizer.zero_grad()
-            policy_loss.backward()
+            total_policy_loss.backward()
+            if self.policy_gradient_clip_norm is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    self.policy.parameters(), self.policy_gradient_clip_norm
+                )
             self.policy_optimizer.step()
 
         if self.log_writer is not None:
             self.log_writer.add_scalar(
                 'loss/-policy loss', -policy_loss.item(), step
+            )
+
+            self.log_writer.add_scalar(
+                'loss/policy_aux_loss', policy_aux_loss.item(), step
+            )
+
+            self.log_writer.add_scalar(
+                'loss/total_policy_loss', total_policy_loss.item(), step
             )
 
         # Action spread logging

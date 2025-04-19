@@ -15,6 +15,9 @@ def rollout(
     agent: AgentBase,
     device,
     reward_scale: float = 1.0,
+    action_transform_func: Optional[
+        Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    ] = None,
     post_step_func: Optional[Callable[[int], None]] = None,
 ):
     """Rollout agent and save trajectory to replay buffer. Log reward once at the end of rollout
@@ -40,16 +43,24 @@ def rollout(
 
     for step in range(num_steps):
         with torch.no_grad():
-            actions = agent.get_action(
-                observations.to(device), noisy=True
-            ).cpu()
+            device_observations = observations.to(device)
+
+            actions = agent.get_action(device_observations, noisy=True)
+
+            if action_transform_func is not None:
+                transformed_actions = action_transform_func(
+                    device_observations, actions
+                ).cpu()
+            else:
+                transformed_actions = actions.cpu()
+
         (
             next_observations_raw,
             rewards_raw,
             terminated,
             truncated,
             _,
-        ) = environment.step(actions.numpy())
+        ) = environment.step(transformed_actions.numpy())
 
         next_observations = pad_to_dim_2(torch.Tensor(next_observations_raw))
 
@@ -62,13 +73,17 @@ def rollout(
         replay_buffer.add(
             (
                 observations,
-                actions,
+                actions,  # Saves original action
                 reward_scale * rewards,
                 next_observations,
                 not_dones,
             ),
             split_first_dim=True,
         )
+
+        # if step == 0:
+        #     print(f'{observations.cpu().numpy()=} {actions.cpu().numpy()=} {transformed_actions.numpy()=} {rewards_raw=}')
+
         observations = next_observations
 
         total_reward += reward_scale * rewards.squeeze()

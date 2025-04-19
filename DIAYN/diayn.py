@@ -115,11 +115,15 @@ class DIAYNAgent(SAC):
             self.q_optimizer.step()
 
         for _ in range(policy_train_iterations):
-            state_skill, _, _, _, _, _ = replay_buffer.sample(batch_size)
-            policy_loss = self.get_policy_loss(state_skill)
-
+            state_skill, _, _, _, next_state_skill, _ = replay_buffer.sample(
+                batch_size
+            )
+            policy_loss, policy_aux_loss = self.get_policy_loss(
+                state_skill, next_state_skill
+            )
+            total_policy_loss = policy_loss + policy_aux_loss
             self.policy_optimizer.zero_grad()
-            policy_loss.backward()
+            total_policy_loss.backward()
             self.policy_optimizer.step()
 
         for _ in range(discriminator_train_iterations):
@@ -143,6 +147,12 @@ class DIAYNAgent(SAC):
             self.log_writer.add_scalar('loss/q loss', q_loss.item(), step)
             self.log_writer.add_scalar(
                 'loss/-policy loss', -policy_loss.item(), step
+            )
+            self.log_writer.add_scalar(
+                'loss/policy_aux_loss', policy_aux_loss.item(), step
+            )
+            self.log_writer.add_scalar(
+                'loss/total_policy_loss', total_policy_loss.item(), step
             )
             self.log_writer.add_scalar(
                 'loss/discriminator loss', discriminator_loss.item(), step

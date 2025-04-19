@@ -40,6 +40,6 @@ file_params:
   video_prefix_path: 'rl_video'
 
 hrl_file_params:
-  model_load_path: null
+  model_load_path: 'weights/hrl_ur5e/run_hrl_2025-04-18_19-46-13/final_high_level_policy.pt'
   video_output_folder: "videos/hrl_ur5e"
   video_prefix_path: 'rl_video'

@@ -24,6 +24,7 @@ training_params:
 hrl_training_params:
   episodes: 2000
   num_steps: 1000
+  skill_duration: 50
   model_load_path: null
   log_parent_folder: 'runs/hrl_ur5e'
   model_save_folder: 'weights/hrl_ur5e'

@@ -170,3 +170,69 @@ def rollout_skill(
     mean_step_reward = total_reward.mean().item() / num_steps
 
     return mean_step_reward
+
+
+def rollout_hrl(
+    environment: Union[gym.Env, gym.vector.VectorEnv],
+    episode_length: int,
+    skill_duration: int,
+    agent: AgentBase,
+    high_level_policy,
+    device,
+    num_skills: int,
+    reward_scale: float = 1.0,
+    log_writer=None,
+    update_step: Optional[int] = None,
+):
+    n_envs = 1
+    if isinstance(environment, gym.vector.VectorEnv):
+        n_envs = environment.num_envs
+
+    observations_raw, _ = environment.reset()
+    observations = pad_to_dim_2(torch.Tensor(observations_raw)).to(device)
+
+    total_reward = torch.zeros(n_envs, device=device)
+    log_probs, returns = [], []
+
+    for step in range(episode_length):
+        if step % skill_duration == 0:
+            state = observations[0]  # Assume single env
+            skill_idx, log_prob_z = high_level_policy.select_skill(
+                state, deterministic=False
+            )
+            skill_vec = torch.nn.functional.one_hot(
+                torch.tensor(skill_idx, device=device), num_classes=num_skills
+            ).unsqueeze(0)
+            skill_vec = skill_vec.expand(n_envs, -1)
+            log_probs.append(log_prob_z)
+            step_reward = torch.zeros(n_envs, device=device)
+
+        state_skill = torch.cat([observations, skill_vec], dim=-1)
+        with torch.no_grad():
+            actions = agent.get_action(state_skill.to(device), noisy=True).cpu()
+        (
+            next_observations_raw,
+            rewards_raw,
+            terminated,
+            truncated,
+            _,
+        ) = environment.step(actions.numpy())
+
+        next_observations = pad_to_dim_2(
+            torch.Tensor(next_observations_raw)
+        ).to(device)
+        rewards = pad_to_dim_2(torch.Tensor(rewards_raw), dim=1).to(device)
+        step_reward += reward_scale * rewards.squeeze()
+
+        observations = next_observations
+        total_reward += rewards.squeeze()
+
+        if (step + 1) % skill_duration == 0:
+            returns.append(step_reward.mean().item())
+
+    if log_writer is not None and update_step is not None:
+        log_writer.add_scalar(
+            'stats/total_pseudo_reward', total_reward.mean().item(), update_step
+        )
+
+    return log_probs, returns, total_reward.mean().item() / episode_length

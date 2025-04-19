@@ -7,7 +7,7 @@ import datetime
 
 from DIAYN import DIAYNAgent, make_env
 from DIAYN.hrl import HighLevelPolicy
-from DIAYN.rl_rollout import rollout_skill
+from DIAYN.rl_rollout import rollout_hrl
 from gymnasium.vector import SyncVectorEnv
 
 
@@ -23,12 +23,11 @@ def main():
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # environment_name = config['params']['environment_name']
-    # robots = config['params']['robots']
     num_envs = config['params']['num_envs']
     num_skills = config['params']['num_skills']
     episodes = config['hrl_training_params']['episodes']
-    skill_duration = config['hrl_training_params'].get('num_steps', 10)
+    episode_length = config['hrl_training_params'].get('num_steps', 1000)
+    skill_duration = config['hrl_training_params'].get('skill_duration', 50)
     model_load_path_diayn = config['hrl_training_params'][
         'model_load_path_pretrained_diayn'
     ]
@@ -130,43 +129,27 @@ def main():
         )
         high_level.load_checkpoint(model_load_path_hrl)
 
-    log_probs, returns = [], []
     update_step = 0
-
     if os.path.exists(training_state_path):
         print(f'Resuming training from {training_state_path}')
         checkpoint = torch.load(training_state_path, map_location=device)
         update_step = checkpoint.get('step', 0)
 
-    # start_time = time.time()
     for ep in range(episodes):
-        state, _ = envs.reset()
-        state = torch.tensor(state[0], dtype=torch.float32, device=device)
-
-        skill_idx, log_prob_z = high_level.select_skill(
-            state, deterministic=False
-        )
-        skill_vec = one_hot(skill_idx, num_skills).to(device)
-
-        mean_step_reward = rollout_skill(
+        log_probs, returns, total_reward = rollout_hrl(
             environment=envs,
-            num_steps=skill_duration,
-            replay_buffer=None,
+            episode_length=episode_length,
+            skill_duration=skill_duration,
             agent=diayn_agent,
+            high_level_policy=high_level,
             device=device,
-            skill_index=torch.tensor([skill_idx]),
-            skill_vector=skill_vec,
+            num_skills=num_skills,
             reward_scale=1.0,
+            log_writer=writer,
+            update_step=update_step,
         )
 
-        total_pseudo_reward = mean_step_reward * skill_duration
-
-        log_probs.append(log_prob_z)
-        returns.append(total_pseudo_reward)
-
-        # if (ep + 1) % 5 == 0:
         high_level.update(log_probs, returns, update_step)
-        log_probs, returns = [], []
         update_step += 1
 
         if (ep + 1) % 10 == 0:

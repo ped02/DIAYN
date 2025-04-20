@@ -136,15 +136,19 @@ def visualize_robosuite(
         return pad_to_dim_2(torch.Tensor(observation_raw).to(device))
     
     def convert_obs_dict_to_nparray(obs_dict, config):
-        use_eef_state = config['observations']['use_eef_state']
-        use_joint_vels = config['observations']['use_joint_vels']
-        use_cube_pos = config['observations']['use_cube_pos']
+        # Setup VAE network if using
+        if config['vae']['use_vae']:
+            observation_raw = np.array([*obs_dict['robot0_proprio-state'], *obs_dict['object-state']])
+        else:
+            use_eef_state = config['observations']['use_eef_state']
+            use_joint_vels = config['observations']['use_joint_vels']
+            use_cube_pos = config['observations']['use_cube_pos']
 
-        observation_raw = np.concatenate([
-                    *([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']] if use_eef_state else []),
-                    *( [obs_dict['robot0_joint_vel']] if use_joint_vels else []),
-                    *( [obs_dict['cube_pos']] if use_cube_pos else []),
-                ])
+            observation_raw = np.concatenate([
+                        *([obs_dict['robot0_eef_pos'], obs_dict['robot0_eef_quat']] if use_eef_state else []),
+                        *( [obs_dict['robot0_joint_vel']] if use_joint_vels else []),
+                        *( [obs_dict['cube_pos']] if use_cube_pos else []),
+                    ])
         
         return observation_raw
 

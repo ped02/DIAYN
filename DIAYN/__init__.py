@@ -10,6 +10,7 @@ from .evaluate_agent import evaluate_agent
 from .evaluate_agent_robosuite import evaluate_agent_robosuite
 from .vae_base import BaseVAE
 from .vae import VAE
+from .vae_discriminator import VaeDiscriminator
 
 import DIAYN.envs
 
@@ -27,7 +28,8 @@ __all__ = [
     'evaluate_agent',
     'evaluate_agent_robosuite',
     'BaseVAE',
-    'VAE'
+    'VAE',
+    'VaeDiscriminator',
 ]
 
 _ = DIAYN.envs  # Dummy reference

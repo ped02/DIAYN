@@ -9,12 +9,15 @@ observations:
   use_eef_state: True
   use_joint_vels: True
   use_cube_pos: True
+
+vae:
   use_vae: True
+  latent_dim: 8
 
 training_params:
   episodes: 2000
   num_steps: 1000
-  model_load_path: '/home/roman/College/Spring 2025/DRL/DIAYN/examples/weights/diayn_ur5e/run_2025-04-14_12-51-50/episode_320.pt'
+  model_load_path: null
   log_parent_folder: 'runs/diayn_ur5e'
   model_save_folder: 'weights/diayn_ur5e'
 
@@ -27,6 +30,6 @@ evaluation_params:
   num_steps: 500
 
 file_params:
-  model_load_path: "/home/roman/College/Spring 2025/DRL/DIAYN/examples/weights/diayn_ur5e/run_2025-04-14_19-48-32/episode_610.pt"
+  model_load_path: null
   video_output_folder: "videos/diayn_ur5e"
   video_prefix_path: 'rl_video'

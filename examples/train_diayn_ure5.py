@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import gymnasium as gym
 
-from DIAYN import ReplayBuffer, DIAYNAgent, CustomGymWrapper, make_env, rollout_skill
+from DIAYN import ReplayBuffer, DIAYNAgent, CustomGymWrapper, make_env, rollout_skill, VAE, VaeDiscriminator
 
 # Robosuite stuff:
 
@@ -275,6 +275,28 @@ def main(
             torch.nn.Linear(128, skill_dim),
         )
 
+        # Setup VAE network if using
+        if config['vae']['use_vae']:
+            vae_network = VAE(input_dim=observation_dim, latent_dim=config['vae']['latent_dim'])
+
+            # Load saved VAE model
+            model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                      os.path.join('models', f'full_to_{config["vae"]["latent_dim"]}_vae.pt'))
+            if not os.path.exists(model_path):
+                raise Exception(f'Model for latent dim of {config["vae"]["latent_dim"]} does not exist')
+            try:
+                vae_network.load_state_dict(torch.load(model_path, map_location=device))
+                vae_network.eval()
+            except:
+                raise Exception('Loading model from save path did not work')
+
+            # Set observation_dim of discriminator network to VAE latent space
+            discriminiator_network[0] = torch.nn.LayerNorm(config['vae']['latent_dim'])
+            discriminiator_network[1] = torch.nn.Linear(config['vae']['latent_dim'], 256)
+
+            # Instantiate the combined vae and discriminator network
+            discriminiator_network = VaeDiscriminator(vae_network, discriminiator_network)
+
         return discriminiator_network
 
     q_optimizer_kwargs = {'lr': 1e-3}
@@ -449,7 +471,7 @@ if __name__ == '__main__':
     use_eef_state = config['observations']['use_eef_state']
     use_joint_vels = config['observations']['use_joint_vels']
     use_cube_pos = config['observations']['use_cube_pos']
-    use_vae = config['observations']['use_vae']
+    use_vae = config['vae']['use_vae']
 
     print(' --------------------')
     print("Observations used:")

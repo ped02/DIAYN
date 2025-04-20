@@ -6,7 +6,7 @@ import torch
 import gymnasium as gym
 from pathlib import Path
 
-from DIAYN import DIAYNAgent, CustomGymWrapper, make_env, evaluate_agent_robosuite, visualize_robosuite
+from DIAYN import DIAYNAgent, CustomGymWrapper, make_env, evaluate_agent_robosuite, visualize_robosuite, VAE, VaeDiscriminator
 
 import robosuite as suite
 from robosuite import load_composite_controller_config
@@ -25,7 +25,8 @@ def main(
     evaluate_episodes: int = 10,
     config: Optional[dict] = None,
 ):
-    device = torch.device('cuda')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
 
     # Setup logging
     log_writer = None
@@ -78,6 +79,28 @@ def main(
             # torch.nn.ReLU(),
             torch.nn.Linear(128, skill_dim),
         )
+
+        # Setup VAE network if using
+        if config['vae']['use_vae']:
+            vae_network = VAE(input_dim=observation_dim, latent_dim=config['vae']['latent_dim'])
+
+            # Load saved VAE model
+            model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                      os.path.join('models', f'full_to_{config["vae"]["latent_dim"]}_vae.pt'))
+            if not os.path.exists(model_path):
+                raise Exception(f'Model for latent dim of {config["vae"]["latent_dim"]} does not exist')
+            try:
+                vae_network.load_state_dict(torch.load(model_path, map_location=device))
+                vae_network.eval()
+            except:
+                raise Exception('Loading model from save path did not work')
+
+            # Set observation_dim of discriminator network to VAE latent space
+            discriminiator_network[0] = torch.nn.LayerNorm(config['vae']['latent_dim'])
+            discriminiator_network[1] = torch.nn.Linear(config['vae']['latent_dim'], 256)
+
+            # Instantiate the combined vae and discriminator network
+            discriminiator_network = VaeDiscriminator(vae_network, discriminiator_network)
 
         return discriminiator_network
 

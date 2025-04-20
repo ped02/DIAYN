@@ -210,7 +210,7 @@ def main(
     plot_train_steps_period: Optional[int] = 1500,
     config: Optional[dict] = None,
 ):
-    device = torch.device('cuda')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
     # Setup logging

@@ -17,7 +17,7 @@ vae:
 training_params:
   episodes: 2000
   num_steps: 1000
-  model_load_path: null
+  model_load_path: '../diayn_vae_weights/episode_230.pt'
   log_parent_folder: 'runs/diayn_ur5e'
   model_save_folder: 'weights/diayn_ur5e'
 
@@ -30,6 +30,6 @@ evaluation_params:
   num_steps: 500
 
 file_params:
-  model_load_path: null
+  model_load_path: ../diayn_vae_weights/episode_890.pt'
   video_output_folder: "videos/diayn_ur5e"
   video_prefix_path: 'rl_video'

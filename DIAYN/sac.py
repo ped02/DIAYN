@@ -4,6 +4,8 @@ import logging
 from collections.abc import Mapping
 from typing import Type, TypeVar, Any, Optional
 
+import numpy as np
+
 import torch
 import torch.distributions
 from torch.utils.tensorboard import SummaryWriter
@@ -58,6 +60,8 @@ class SAC:
         self.alpha = alpha
         self.std_dev_low = 0.2
         self.std_dev_high = 2.0
+        self.log_std_dev_low = np.log(self.std_dev_low)
+        self.log_std_dev_high = np.log(self.std_dev_high)
         self.action_low = torch.tensor(
             action_low, device=self.device
         )  # [action_dim]
@@ -174,6 +178,8 @@ class SAC:
 
         self.std_dev_low = state_dict['std_dev_low']
         self.std_dev_high = state_dict['std_dev_high']
+        self.log_std_dev_low = np.log(self.std_dev_low)
+        self.log_std_dev_high = np.log(self.std_dev_high)
 
         if state_dict.get('action_low') is not None:
             self.action_low = torch.tensor(
@@ -235,7 +241,10 @@ class SAC:
         """
 
         mean, log_std_dev = self.policy(states).chunk(2, dim=-1)
-        std_dev = log_std_dev.exp().clamp(self.std_dev_low, self.std_dev_high)
+        # std_dev = log_std_dev.exp().clamp(self.std_dev_low, self.std_dev_high)
+        std_dev = log_std_dev.clamp(
+            self.log_std_dev_low, self.log_std_dev_high
+        ).exp()
         h = torch.distributions.Normal(mean, std_dev).entropy()
         return h
 
@@ -246,9 +255,12 @@ class SAC:
 
         mean, log_std_dev = self.policy(states).chunk(2, dim=-1)
         if noisy:
-            std_dev = log_std_dev.exp().clamp(
-                self.std_dev_low, self.std_dev_high
-            )
+            # std_dev = log_std_dev.exp().clamp(
+            #     self.std_dev_low, self.std_dev_high
+            # )
+            std_dev = log_std_dev.clamp(
+                self.log_std_dev_low, self.log_std_dev_high
+            ).exp()
             dist = torch.distributions.Normal(mean, std_dev)
             action = dist.rsample()
             log_prob_action = dist.log_prob(action)
@@ -267,9 +279,12 @@ class SAC:
         """Sample action from target policy network"""
         mean, log_std_dev = self.policy_target(states).chunk(2, dim=-1)
         if noisy:
-            std_dev = log_std_dev.exp().clamp(
-                self.std_dev_low, self.std_dev_high
-            )
+            # std_dev = log_std_dev.exp().clamp(
+            #     self.std_dev_low, self.std_dev_high
+            # )
+            std_dev = log_std_dev.clamp(
+                self.log_std_dev_low, self.log_std_dev_high
+            ).exp()
             dist = torch.distributions.Normal(mean, std_dev)
             action = dist.rsample()
             log_prob_action = dist.log_prob(action)

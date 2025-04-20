@@ -1,0 +1,31 @@
+# Store episodes, num_envs, num_steps and stuff here for use in other files:
+params:
+  environment_name: "Lift"
+  robots: "Panda"
+  num_envs: 4
+  num_skills: 50
+
+observations:
+  use_eef_state: True
+  use_joint_vels: True
+  use_cube_pos: True
+  use_vae: False
+
+training_params:
+  episodes: 2000
+  num_steps: 500
+  skill_policy_path: 'output/ur5e_episode_1560.pt'
+  log_parent_folder: 'runs/hrl_ur5e_10'
+  model_save_folder: 'weights/hrl_ur5e_10'
+
+  q_train_iterations: 1
+  policy_train_iterations: 1
+
+evaluation_params:
+  camera_view: 'birdview'
+  num_steps: 500
+
+file_params:
+  model_load_path: 'weights/hrl_ur5e_10/run_2025-04-19_22-31-10/episode_800.pt'
+  video_output_folder: "videos/hrl_ur5e_10"
+  video_prefix_path: 'rl_video'

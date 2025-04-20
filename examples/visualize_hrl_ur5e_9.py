@@ -1,12 +1,12 @@
 import os
 from typing import Optional, Union
 import yaml
-import copy
 
+import numpy as np
 import torch
 from pathlib import Path
 
-from DIAYN import DIAYNAgent, SAC, make_env, visualize_robosuite, AgentBase
+from DIAYN import DIAYNAgent, SAC, make_env, visualize_robosuite
 
 
 from gymnasium.vector import SyncVectorEnv
@@ -80,7 +80,8 @@ def load_skill_policy(
         log_writer=log_writer,
     )
 
-    diayn_agent.load_checkpoint(model_load_path)
+    if model_load_path is not None:
+        diayn_agent.load_checkpoint(model_load_path)
 
     diayn_agent.freeze()
 
@@ -91,44 +92,35 @@ class HRLPolicy(torch.nn.Module):
     def __init__(
         self,
         observation_dim,
-        action_dim,
         skill_dim,
-        action_low,
-        action_high,
-        device,
-        skill_policy: AgentBase,
+        sparsity_loss_factor: float = 1.0,
+        smoothness_loss_factor: float = 1.0,
         **kwargs,
     ):
         super(HRLPolicy, self).__init__(**kwargs)
 
-        self.skill_policy = skill_policy
-
         self.skill_selector = torch.nn.Sequential(
-            torch.nn.Linear(observation_dim, 32),
+            torch.nn.Linear(observation_dim, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(32, 32),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(32, skill_dim),
-            torch.nn.Sigmoid(),
+            torch.nn.Linear(256, 2 * skill_dim),
         )
 
-    def forward(self, state):
-        skill_vector = self.skill_selector(state)
-        augmented_state = torch.concatenate([state, skill_vector], axis=-1)
-        action = self.skill_policy.policy(augmented_state)
-        return action
+        self.register_buffer(
+            'sparsity_loss_factor', torch.tensor(sparsity_loss_factor)
+        )
+        self.register_buffer(
+            'smoothness_loss_factor', torch.tensor(smoothness_loss_factor)
+        )
 
-    def __deepcopy__(self, memo):
-        cls = self.__class__
-        copied = cls.__new__(cls)
-        memo[id(self)] = copied
+    def load_state_dict(self, state_dict, strict=True, assign=False):
+        return super().load_state_dict(state_dict, strict, assign)
 
-        for k, v in self.__dict__.items():
-            if k == 'skill_policy':
-                setattr(copied, k, v)  # Don't deepcopy skill_policy
-            else:
-                setattr(copied, k, copy.deepcopy(v, memo))
-        return copied
+    def forward(self, states):
+        skill_mean, skill_log_std = self.skill_selector(states).chunk(2, dim=-1)
+        skill_mean = torch.softmax(skill_mean, dim=-1)
+        return torch.concatenate([skill_mean, skill_log_std], dim=-1)
 
 
 def main(
@@ -140,7 +132,6 @@ def main(
     video_output_folder: str,
     video_file_prefix: str = 'rl_video',
     model_load_path: Optional[str] = None,
-    skill_policy_path: Optional[str] = None,
     evaluate_episodes: int = 10,
     config: Optional[dict] = None,
 ):
@@ -159,7 +150,21 @@ def main(
     action_low = envs.action_space.low[0]
     action_high = envs.action_space.high[0]
 
-    print(f'{action_dims=} {action_low=} {action_high=}')
+    # Load skills
+    skill_policy = load_skill_policy(
+        observation_dims,
+        action_dims,
+        action_low,
+        action_high,
+        device,
+        skill_policy_path,
+        log_writer,
+    )
+
+    def transform_action(states, actions):
+        return skill_policy.get_action(
+            torch.concatenate([states, actions], axis=-1), noisy=True
+        )
 
     # Setup networks
     def get_q_network(observation_dim, action_dim):
@@ -173,26 +178,15 @@ def main(
 
         return q_network
 
-    # Load skills
-    skill_policy = load_skill_policy(
-        observation_dims,
-        action_dims,
-        action_low,
-        action_high,
-        device,
-        skill_policy_path,
-        log_writer,
-    )
+    sparsity_lambda = 0.01
+    smoothness_lambda = 0.05
 
     def get_policy_network(observation_dim, action_dim):
         policy_network = HRLPolicy(
             observation_dim,
             action_dim,
-            skill_dim=num_skills,
-            action_low=action_low,
-            action_high=action_high,
-            device=device,
-            skill_policy=skill_policy,
+            sparsity_loss_factor=sparsity_lambda,
+            smoothness_loss_factor=smoothness_lambda,
         )
         return policy_network
 
@@ -202,14 +196,16 @@ def main(
     # Setup agent
     hrl_agent = SAC(
         state_dim=observation_dims,
-        action_dim=action_dims,
+        action_dim=num_skills,
         policy_class=get_policy_network,
         q_network_class=get_q_network,
-        alpha=0.1,
-        action_low=action_low,
-        action_high=action_high,
+        alpha=0.05,
+        action_low=np.zeros(num_skills, dtype=np.float32),
+        action_high=np.ones(num_skills, dtype=np.float32),
         policy_optimizer_kwargs=policy_optimizer_kwargs,
         q_optimizer_kwargs=q_optimizer_kwargs,
+        policy_gradient_clip_norm=1e-2,
+        q_gradient_clip_norm=1e-2,
         device=device,
         log_writer=log_writer,
     )
@@ -224,6 +220,7 @@ def main(
         steps_per_episode,
         hrl_agent,
         device,
+        action_transform_func=transform_action,
         output_folder=video_output_folder,
         output_name_prefix=f'{video_file_prefix}',
         config=config,
@@ -246,7 +243,7 @@ if __name__ == '__main__':
     current_dir = str(Path(__file__).parent.resolve())
     print('Current directory:', current_dir)
 
-    with open(current_dir + '/config/ur5e_config_hrl.yaml', 'r') as file:
+    with open(current_dir + '/config/ur5e_config_hrl_9.yaml', 'r') as file:
         config = yaml.safe_load(file)
     # exit()
     environment_name = config['params']['environment_name']
@@ -276,6 +273,5 @@ if __name__ == '__main__':
         video_output_folder,
         video_prefix_path,
         model_load_path=model_load_path,
-        skill_policy_path=skill_policy_path,
         config=config,
     )
